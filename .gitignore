@@ -14,6 +14,7 @@
 *.dSYM/
 *.su
 log
+logdata
 logs
 tags
 build

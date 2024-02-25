@@ -53,6 +53,8 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
 
 Timeseries ts_new(const char *name, uint64_t retention);
 
+int ts_init(Timeseries *ts);
+
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
 
 #endif
