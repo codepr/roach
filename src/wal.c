@@ -4,11 +4,23 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #define MAX_PATH_SIZE 512
 
+static int make_dir(const char *path) {
+    struct stat st = {0};
+
+    if (stat(path, &st) == -1) {
+        mkdir(path, 0700);
+    }
+    return 0;
+}
+
 static int open_file(const char *path, const char *ext, uint64_t base) {
+    if (make_dir(path) < 0)
+        return -1;
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/%.20lu.%s", path, base, ext);
     int fd = open(path_buf, O_CREAT | O_RDWR, 0644);
@@ -37,7 +49,6 @@ static long get_file_size(const char *filename) {
 }
 
 int wal_init(Wal *w, const char *path, uint64_t base_timestamp) {
-    printf("Path: %s\n", path);
     int fd = open_file(path, "log", base_timestamp);
     if (fd < 0)
         goto errdefer;

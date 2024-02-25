@@ -48,8 +48,6 @@ typedef struct timeseries {
     Timeseries_Chunk ooo_chunk;
 } Timeseries;
 
-int ts_chunk_new(Timeseries_Chunk *ts_chunk, const char *path);
-
 int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
                         double_t value);
 
