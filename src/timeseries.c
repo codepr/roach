@@ -2,14 +2,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-Timeseries_Chunk ts_chunk_new(const char *name, int64_t retention) {
-    Timeseries_Chunk ts_chunk;
-    ts_chunk.retention = retention;
-    ts_chunk.base_offset = 0;
-    snprintf(ts_chunk.name, TS_NAME_MAX_LENGTH, "%s", name);
-    return ts_chunk;
-}
-
 /*
  * Set a record in the chunk at a relative index based on the first timestamp
  * stored e.g.
@@ -43,4 +35,11 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
     cursor->timestamp = ts;
 
     return 0;
+}
+
+Timeseries ts_new(const char *name, uint64_t retention) {
+    Timeseries ts;
+    ts.retention = retention;
+    snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
+    return ts;
 }

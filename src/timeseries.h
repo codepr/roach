@@ -21,26 +21,33 @@ typedef struct record {
 
 /*
  * Time series chunk, main data structure to handle the time-series, it carries
- * some basic informations like the name of the series and the data. Data are
- * stored in a single array, using a base_offset as a strating timestamp,
- * resulting in the timestamps fitting in the allocated space.
+ * some a base offset which represents the 1st timestamp inserted and the
+ * columns data. Data are stored in a single array, using a base_offset as a
+ * strating timestamp, resulting in the timestamps fitting in the allocated
+ * space.
  */
-
 typedef struct timeseries_chunk {
-    int64_t retention;
     uint16_t base_offset;
-    char name[TS_NAME_MAX_LENGTH];
     Record columns[TS_CHUNK_SIZE];
 } Timeseries_Chunk;
 
+/*
+ * Time series, main data structure to handle the time-series, it carries some
+ * basic informations like the name of the series and the retention time. Data
+ * are stored in 2 Timeseries_Chunk, a current and latest timestamp one and one
+ * to account for out of order points that will be merged later when flushing
+ * on disk.
+ */
 typedef struct timeseries {
+    int64_t retention;
+    char name[TS_NAME_MAX_LENGTH];
     Timeseries_Chunk current_chunk;
     Timeseries_Chunk ooo_chunk;
 } Timeseries;
 
-Timeseries_Chunk ts_chunk_new(const char *name, int64_t retention);
-
 int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
                         double_t value);
+
+Timeseries ts_new(const char *name, uint64_t retention);
 
 #endif
