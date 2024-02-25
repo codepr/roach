@@ -113,11 +113,13 @@ int ts_init(Timeseries *ts) {
                     goto exit;
 
                 int i = 0;
+                uint8_t *ptr = buf;
                 while (n > 0) {
-                    ts->current_chunk.columns[i].timestamp = read_i64(buf);
+                    ts->current_chunk.columns[i].timestamp = read_i64(ptr);
                     ts->current_chunk.columns[i].value =
-                        read_f64(buf + sizeof(uint64_t));
+                        read_f64(ptr + sizeof(uint64_t));
                     ts->current_chunk.columns[i].is_set = 1;
+                    ptr += sizeof(uint64_t) + sizeof(double_t);
                     n -= (sizeof(uint64_t) + sizeof(double_t));
                     i++;
                 }
@@ -131,11 +133,13 @@ int ts_init(Timeseries *ts) {
                     goto exit;
 
                 int i = 0;
+                uint8_t *ptr = buf;
                 while (n > 0) {
-                    ts->ooo_chunk.columns[i].timestamp = read_i64(buf);
+                    ts->ooo_chunk.columns[i].timestamp = read_i64(ptr);
                     ts->ooo_chunk.columns[i].value =
-                        read_f64(buf + sizeof(uint64_t));
+                        read_f64(ptr + sizeof(uint64_t));
                     ts->ooo_chunk.columns[i].is_set = 1;
+                    ptr += sizeof(uint64_t) + sizeof(double_t);
                     n -= (sizeof(uint64_t) + sizeof(double_t));
                     i++;
                 }
