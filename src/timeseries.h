@@ -16,18 +16,14 @@
 typedef struct record {
     uint64_t timestamp;
     double_t value;
+    struct record *next;
 } Record;
 
 /*
- * Time series, main data structure to handle the time-series, it carries some
- * basic informations like the name of the series and the data. Data are stored
- * as two paired arrays, one indexing the timestamp of each row, the other
- * being an array of arrays of `tts_record`, this way we can easily store
- * different number of columns for each row, depending on the presence of the
- * data during the insertion.
- * A third array is used to store the fields name, each row (index in the
- * columns array) will be paired with the fields array to retrieve what field
- * it refers to, if present.
+ * Time series chunk, main data structure to handle the time-series, it carries
+ * some basic informations like the name of the series and the data. Data are
+ * stored in a single array, using a base_offset as a strating timestamp,
+ * resulting in the timestamps fitting in the allocated space.
  */
 
 typedef struct timeseries_chunk {
@@ -36,6 +32,11 @@ typedef struct timeseries_chunk {
     char name[TS_NAME_MAX_LENGTH];
     Record columns[TS_CHUNK_SIZE];
 } Timeseries_Chunk;
+
+typedef struct timeseries {
+    Timeseries_Chunk current_chunk;
+    Timeseries_Chunk ooo_chunk;
+} Timeseries;
 
 Timeseries_Chunk ts_chunk_new(const char *name, int64_t retention);
 

@@ -33,8 +33,14 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
     size_t index = ts - ts_chunk->base_offset;
     assert(index < TS_CHUNK_SIZE);
 
-    ts_chunk->columns[index].value = value;
-    ts_chunk->columns[index].timestamp = ts;
+    // Append to the last record in this timestamp bucket
+    Record *cursor = &ts_chunk->columns[index];
+
+    while (cursor->next)
+        cursor = cursor->next;
+
+    cursor->value = value;
+    cursor->timestamp = ts;
 
     return 0;
 }
