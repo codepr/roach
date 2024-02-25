@@ -2,6 +2,13 @@
 #include <assert.h>
 #include <stdio.h>
 
+int ts_chunk_new(Timeseries_Chunk *ts_chunk, const char *path) {
+    if (wal_init(&ts_chunk->wal, path, ts_chunk->base_offset) < 0)
+        return -1;
+    ts_chunk->base_offset = 0;
+    return 0;
+}
+
 /*
  * Set a record in the chunk at a relative index based on the first timestamp
  * stored e.g.
@@ -23,6 +30,7 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
 
     // Relative offset inside the 2 arrays
     size_t index = ts - ts_chunk->base_offset;
+    printf("%lu\n", index);
     assert(index < TS_CHUNK_SIZE);
 
     // Append to the last record in this timestamp bucket
@@ -37,6 +45,10 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
         cursor = cursor->next;
     }
 
+    // Persist to disk for disaster recovery
+    wal_append_record(&ts_chunk->wal, ts, value);
+
+    // Set the record
     cursor->value = value;
     cursor->timestamp = ts;
     cursor->is_set = 1;
@@ -48,6 +60,10 @@ Timeseries ts_new(const char *name, uint64_t retention) {
     Timeseries ts;
     ts.retention = retention;
     snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
+    ts_chunk_new(&ts.current_chunk, "logdata");
+    // TODO remove
+    ts.ooo_chunk.base_offset = 10;
+    ts_chunk_new(&ts.ooo_chunk, "logdata");
     return ts;
 }
 

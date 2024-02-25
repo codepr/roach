@@ -1,6 +1,7 @@
 #ifndef TIMESERIES_H
 #define TIMESERIES_H
 
+#include "wal.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -28,7 +29,8 @@ typedef struct record {
  * space.
  */
 typedef struct timeseries_chunk {
-    uint16_t base_offset;
+    Wal wal;
+    uint64_t base_offset;
     Record columns[TS_CHUNK_SIZE];
 } Timeseries_Chunk;
 
@@ -45,6 +47,8 @@ typedef struct timeseries {
     Timeseries_Chunk current_chunk;
     Timeseries_Chunk ooo_chunk;
 } Timeseries;
+
+int ts_chunk_new(Timeseries_Chunk *ts_chunk, const char *path);
 
 int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
                         double_t value);
