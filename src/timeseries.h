@@ -16,6 +16,7 @@
 typedef struct record {
     uint64_t timestamp;
     double_t value;
+    int is_set;
     struct record *next;
 } Record;
 
@@ -49,5 +50,7 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
                         double_t value);
 
 Timeseries ts_new(const char *name, uint64_t retention);
+
+int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
 
 #endif

@@ -31,8 +31,15 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
     while (cursor->next)
         cursor = cursor->next;
 
+    // Move to a vector, first quick implementation with LL is fine
+    if (cursor->is_set) {
+        cursor->next = malloc(sizeof(*cursor));
+        cursor = cursor->next;
+    }
+
     cursor->value = value;
     cursor->timestamp = ts;
+    cursor->is_set = 1;
 
     return 0;
 }
@@ -42,4 +49,11 @@ Timeseries ts_new(const char *name, uint64_t retention) {
     ts.retention = retention;
     snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
     return ts;
+}
+
+int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
+    // Let it crash for now if the timestamp is out of bounds in the ooo
+    if (timestamp < ts->current_chunk.base_offset)
+        return ts_chunk_set_record(&ts->ooo_chunk, timestamp, value);
+    return ts_chunk_set_record(&ts->current_chunk, timestamp, value);
 }
