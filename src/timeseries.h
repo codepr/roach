@@ -1,13 +1,14 @@
 #ifndef TIMESERIES_H
 #define TIMESERIES_H
 
+#include "vec.h"
 #include "wal.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #define TS_NAME_MAX_LENGTH 1 << 9
-#define TS_CHUNK_SIZE 3600 // 1 hr
+#define TS_CHUNK_SIZE 900 // 15 min
 
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
@@ -18,8 +19,9 @@ typedef struct record {
     uint64_t timestamp;
     double_t value;
     int is_set;
-    struct record *next;
 } Record;
+
+typedef VEC(Record) Points;
 
 /*
  * Time series chunk, main data structure to handle the time-series, it carries
@@ -31,7 +33,7 @@ typedef struct record {
 typedef struct timeseries_chunk {
     Wal wal;
     uint64_t base_offset;
-    Record columns[TS_CHUNK_SIZE];
+    Points points[TS_CHUNK_SIZE];
 } Timeseries_Chunk;
 
 /*
@@ -48,13 +50,17 @@ typedef struct timeseries {
     Timeseries_Chunk ooo_chunk;
 } Timeseries;
 
-int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
+int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
                         double_t value);
 
 Timeseries ts_new(const char *name, uint64_t retention);
 
 int ts_init(Timeseries *ts);
 
+void ts_destroy(Timeseries *ts);
+
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
+
+void ts_print(const Timeseries *ts);
 
 #endif

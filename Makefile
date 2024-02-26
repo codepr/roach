@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb -D_DEFAULT_SOURCE=200809L
+CFLAGS=-Wall -Wextra -Werror -Wunused -std=c11 -pedantic -ggdb -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -pg -D_DEFAULT_SOURCE=200809L
 
 all: roach
 

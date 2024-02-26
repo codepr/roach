@@ -9,15 +9,18 @@ int main(void) {
     int ok = ts_init(&ts);
     if (!ok) {
         printf("Init\n");
+        struct timespec tv;
         for (int i = 0; i < 20; ++i) {
-            ts_set_record(&ts, time(NULL), (double_t)i);
-            sleep(1);
+            clock_gettime(CLOCK_REALTIME, &tv);
+            uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec;
+            ts_set_record(&ts, timestamp, (double_t)i);
+            usleep(100);
         }
     }
 
-    for (int i = 0; i < 20; ++i) {
-        printf("%lu - %.02f\n", ts.current_chunk.columns[i].timestamp,
-               ts.current_chunk.columns[i].value);
-    }
+    ts_print(&ts);
+
+    ts_destroy(&ts);
+
     return 0;
 }

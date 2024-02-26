@@ -37,9 +37,16 @@ static ssize_t read_file(int fd, uint8_t *buf) {
 static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
                          uint64_t base_ts, int main) {
     ts_chunk->base_offset = base_ts;
+    for (int i = 0; i < TS_CHUNK_SIZE; ++i)
+        VEC_NEW(ts_chunk->points[i]);
     if (wal_init(&ts_chunk->wal, path, ts_chunk->base_offset, main) < 0)
         return -1;
     return 0;
+}
+
+static void ts_chunk_destroy(Timeseries_Chunk *ts_chunk) {
+    for (int i = 0; i < TS_CHUNK_SIZE; ++i)
+        VEC_DESTROY(ts_chunk->points[i]);
 }
 
 /*
@@ -53,31 +60,20 @@ static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
  * The information stored is initially formed by a timestamp and a long double
  * value
  */
-int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t ts,
+int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
                         double_t value) {
     // Relative offset inside the 2 arrays
-    size_t index = ts - ts_chunk->base_offset;
+    size_t index = sec - ts_chunk->base_offset;
     assert(index < TS_CHUNK_SIZE);
 
     // Append to the last record in this timestamp bucket
-    Record *cursor = &ts_chunk->columns[index];
-
-    while (cursor->next)
-        cursor = cursor->next;
-
-    // Move to a vector, first quick implementation with LL is fine
-    if (cursor->is_set) {
-        cursor->next = malloc(sizeof(*cursor));
-        cursor = cursor->next;
-    }
-
-    // Persist to disk for disaster recovery
-    wal_append_record(&ts_chunk->wal, ts, value);
-
-    // Set the record
-    cursor->value = value;
-    cursor->timestamp = ts;
-    cursor->is_set = 1;
+    Record point = {
+        .value = value,
+        .timestamp = nsec,
+        .is_set = 1,
+    };
+    // May want to insertion sort here
+    VEC_APPEND(ts_chunk->points[index], point);
 
     return 0;
 }
@@ -104,24 +100,29 @@ int ts_init(Timeseries *ts) {
         if (strncmp(dot, ".log", 4) == 0) {
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 2);
             if (namelist[i]->d_name[0] == 'm') {
-                printf("%s\n", pathbuf);
                 err = wal_from_disk(&ts->current_chunk.wal, pathbuf,
                                     base_timestamp, 1);
-                uint8_t buf[ts->current_chunk.wal.size];
+                uint8_t buf[ts->current_chunk.wal.size + 1];
                 int n = read_file(ts->current_chunk.wal.fd, buf);
                 if (n < 0)
                     goto exit;
 
-                int i = 0;
+                ts_chunk_init(&ts->current_chunk, pathbuf, base_timestamp, 1);
+
                 uint8_t *ptr = buf;
+                uint64_t timestamp;
+                double_t value;
                 while (n > 0) {
-                    ts->current_chunk.columns[i].timestamp = read_i64(ptr);
-                    ts->current_chunk.columns[i].value =
-                        read_f64(ptr + sizeof(uint64_t));
-                    ts->current_chunk.columns[i].is_set = 1;
+                    timestamp = read_i64(ptr);
+                    value = read_f64(ptr + sizeof(uint64_t));
+
+                    uint64_t sec = timestamp / (uint64_t)1e9;
+                    uint64_t nsec = timestamp % (uint64_t)1e9;
+
+                    ts_chunk_set_record(&ts->current_chunk, sec, nsec, value);
+
                     ptr += sizeof(uint64_t) + sizeof(double_t);
                     n -= (sizeof(uint64_t) + sizeof(double_t));
-                    i++;
                 }
                 ok = 1;
             } else {
@@ -132,16 +133,22 @@ int ts_init(Timeseries *ts) {
                 if (n < 0)
                     goto exit;
 
-                int i = 0;
+                ts_chunk_init(&ts->ooo_chunk, pathbuf, base_timestamp, 0);
+
                 uint8_t *ptr = buf;
+                uint64_t timestamp;
+                double_t value;
                 while (n > 0) {
-                    ts->ooo_chunk.columns[i].timestamp = read_i64(ptr);
-                    ts->ooo_chunk.columns[i].value =
-                        read_f64(ptr + sizeof(uint64_t));
-                    ts->ooo_chunk.columns[i].is_set = 1;
+                    timestamp = read_i64(ptr);
+                    value = read_f64(ptr + sizeof(uint64_t));
+
+                    uint64_t sec = timestamp / (uint64_t)1e9;
+                    uint64_t nsec = timestamp % (uint64_t)1e9;
+
+                    ts_chunk_set_record(&ts->ooo_chunk, sec, nsec, value);
+
                     ptr += sizeof(uint64_t) + sizeof(double_t);
                     n -= (sizeof(uint64_t) + sizeof(double_t));
-                    i++;
                 }
                 if (err < 0)
                     goto exit;
@@ -161,24 +168,55 @@ exit:
     return err;
 }
 
+void ts_destroy(Timeseries *ts) {
+    ts_chunk_destroy(&ts->current_chunk);
+    ts_chunk_destroy(&ts->ooo_chunk);
+}
+
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
+    uint64_t sec = timestamp / (uint64_t)1e9;
+    uint64_t nsec = timestamp % (uint64_t)1e9;
     // Let it crash for now if the timestamp is out of bounds in the ooo
-    if (timestamp < ts->current_chunk.base_offset) {
+    if (sec < ts->current_chunk.base_offset) {
         // If the chunk is empty, it also means the base offset is 0, we set
         // it here with the first record inserted
         if (ts->ooo_chunk.base_offset == 0) {
             char pathbuf[PATH_BUF_MAXSIZE];
             snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
-            ts_chunk_init(&ts->ooo_chunk, pathbuf, timestamp, 0);
+            ts_chunk_init(&ts->ooo_chunk, pathbuf, sec, 0);
         }
 
-        return ts_chunk_set_record(&ts->ooo_chunk, timestamp, value);
+        // Persist to disk for disaster recovery
+        wal_append_record(&ts->ooo_chunk.wal, timestamp, value);
+
+        return ts_chunk_set_record(&ts->ooo_chunk, sec, nsec, value);
     }
 
     if (ts->current_chunk.base_offset == 0) {
         char pathbuf[PATH_BUF_MAXSIZE];
         snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
-        ts_chunk_init(&ts->current_chunk, pathbuf, timestamp, 1);
+        ts_chunk_init(&ts->current_chunk, pathbuf, sec, 1);
     }
-    return ts_chunk_set_record(&ts->current_chunk, timestamp, value);
+
+    // Persist to disk for disaster recovery
+    wal_append_record(&ts->current_chunk.wal, timestamp, value);
+    return ts_chunk_set_record(&ts->current_chunk, sec, nsec, value);
+}
+
+void ts_print(const Timeseries *ts) {
+    int base_timestamp = 0;
+    for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
+        base_timestamp = ts->current_chunk.base_offset;
+        Points p = ts->current_chunk.points[i];
+        for (size_t j = 0; j < VEC_SIZE(p); ++j) {
+            Record r = VEC_AT(p, j);
+            if (!r.is_set)
+                continue;
+            uint64_t sec = base_timestamp + i;
+            uint64_t nsec = r.timestamp;
+            uint64_t timestamp = sec * 1e9 + nsec;
+            printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}\n", timestamp,
+                   sec, nsec, r.value);
+        }
+    }
 }
