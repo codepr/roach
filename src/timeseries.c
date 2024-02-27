@@ -69,7 +69,8 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
     // Append to the last record in this timestamp bucket
     Record point = {
         .value = value,
-        .timestamp = nsec,
+        .timestamp = sec * 1e9 + nsec,
+        .tv = (struct timespec){.tv_sec = sec, .tv_nsec = nsec},
         .is_set = 1,
     };
     // May want to insertion sort here
@@ -203,20 +204,95 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     return ts_chunk_set_record(&ts->current_chunk, sec, nsec, value);
 }
 
+/*
+ * Compare two Record structures, taking into account the timestamp of each.
+ *
+ * It returns an integer following the rules:
+ *
+ * . -1 r1 is lesser than r2
+ * .  0 r1 is equal to r2
+ * .  1 r1 is greater than r2
+ */
+static int record_cmp(const Record *r1, const Record *r2) {
+    if (r1->timestamp == r2->timestamp)
+        return 0;
+    if (r1->timestamp > r2->timestamp)
+        return 1;
+    return -1;
+}
+
+Record ts_find_record(const Timeseries *ts, uint64_t timestamp) {
+    uint64_t sec = timestamp / (uint64_t)1e9;
+    size_t index = 0;
+    Record target = {.timestamp = timestamp};
+    // First check the current chunk
+    if (ts->current_chunk.base_offset <= sec &&
+        (index = sec - ts->current_chunk.base_offset) < TS_CHUNK_SIZE) {
+        size_t idx = 0;
+        VEC_BSEARCH_PTR(ts->current_chunk.points[index], &target, record_cmp,
+                        &idx);
+        Record r = VEC_AT(ts->current_chunk.points[index], idx);
+        return r;
+    }
+    // Then check the OOO chunk
+    if (ts->ooo_chunk.base_offset <= sec &&
+        (index = sec - ts->ooo_chunk.base_offset) < TS_CHUNK_SIZE) {
+        size_t idx = 0;
+        VEC_BSEARCH_PTR(ts->ooo_chunk.points[index], &target, record_cmp, &idx);
+        Record r = VEC_AT(ts->ooo_chunk.points[index], idx);
+        return r;
+    }
+
+    // TODO look for the record on disk
+
+    return (Record){.is_set = 0};
+}
+
+Points ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1) {
+    uint64_t sec0 = t0 / (uint64_t)1e9;
+    /* uint64_t nsec0 = t0 % (uint64_t)1e9; */
+    uint64_t sec1 = t1 / (uint64_t)1e9;
+    /* uint64_t nsec1 = t1 % (uint64_t)1e9; */
+    size_t low, high;
+    Points coll;
+    VEC_NEW(coll);
+    // First check the current chunk
+    if (ts->current_chunk.base_offset <= sec0 &&
+        (low = sec0 - ts->current_chunk.base_offset) < TS_CHUNK_SIZE) {
+        // Find the low
+        Record target = {.timestamp = t0};
+        size_t idx_low = 0;
+        VEC_BSEARCH_PTR(ts->current_chunk.points[low], &target, record_cmp,
+                        &idx_low);
+        // Find the high
+        // TODO let it crash on edge cases for now
+        size_t idx_high = 0;
+        high = sec1 - ts->current_chunk.base_offset;
+        target.timestamp = t1;
+        VEC_BSEARCH_PTR(ts->current_chunk.points[high], &target, record_cmp,
+                        &idx_high);
+        // Collect the records
+        for (size_t i = low; i < high; ++i) {
+            for (size_t j = idx_low; j < VEC_SIZE(ts->current_chunk.points[i]);
+                 ++j) {
+                VEC_APPEND(coll, VEC_AT(ts->current_chunk.points[i], j));
+            }
+            idx_low = 0;
+        }
+    }
+
+    return coll;
+}
+
 void ts_print(const Timeseries *ts) {
-    int base_timestamp = 0;
     for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
-        base_timestamp = ts->current_chunk.base_offset;
         Points p = ts->current_chunk.points[i];
         for (size_t j = 0; j < VEC_SIZE(p); ++j) {
             Record r = VEC_AT(p, j);
             if (!r.is_set)
                 continue;
-            uint64_t sec = base_timestamp + i;
-            uint64_t nsec = r.timestamp;
-            uint64_t timestamp = sec * 1e9 + nsec;
-            printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}\n", timestamp,
-                   sec, nsec, r.value);
+            printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}\n", r.timestamp,
+                   r.tv.tv_sec, r.tv.tv_nsec, r.value);
         }
     }
 }

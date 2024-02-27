@@ -17,6 +17,7 @@
  */
 typedef struct record {
     uint64_t timestamp;
+    struct timespec tv;
     double_t value;
     int is_set;
 } Record;
@@ -60,6 +61,10 @@ int ts_init(Timeseries *ts);
 void ts_destroy(Timeseries *ts);
 
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
+
+Record ts_find_record(const Timeseries *ts, uint64_t timestamp);
+
+Points ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1);
 
 void ts_print(const Timeseries *ts);
 

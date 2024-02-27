@@ -71,7 +71,7 @@
         (vec).size -= (start);                                                 \
     } while (0)
 
-#define VEC_BINSEARCH(vec, target, res)                                        \
+#define VEC_BSEARCH(vec, target, res)                                          \
     do {                                                                       \
         if ((vec).data[0] >= (target)) {                                       \
             *(res) = 0;                                                        \
@@ -98,7 +98,7 @@
         }                                                                      \
     } while (0)
 
-#define VEC_BINSEARCH_PTR(vec, target, cmp, res)                               \
+#define VEC_BSEARCH_PTR(vec, target, cmp, res)                                 \
     do {                                                                       \
         if ((cmp)(&(vec).data[0], (target)) >= 0) {                            \
             *(res) = 0;                                                        \
