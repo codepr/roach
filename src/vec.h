@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define VEC_BASE_SIZE 4
+#define VEC_BASE_CAPACITY 4
 
 #define VEC(T)                                                                 \
     struct {                                                                   \
@@ -15,7 +15,7 @@
         T *data;                                                               \
     }
 
-#define VEC_INIT(vec, cap)                                                     \
+#define vec_init(vec, cap)                                                     \
     do {                                                                       \
         assert((cap) > 0);                                                     \
         (vec).size = 0;                                                        \
@@ -23,17 +23,17 @@
         (vec).data = calloc((cap), sizeof((vec).data[0]));                     \
     } while (0)
 
-#define VEC_NEW(vec) VEC_INIT((vec), VEC_BASE_SIZE)
+#define vec_new(vec) vec_init((vec), VEC_BASE_CAPACITY)
 
-#define VEC_DESTROY(vec) free((vec).data)
+#define vec_destroy(vec) free((vec).data)
 
-#define VEC_SIZE(vec) (vec).size
+#define vec_size(vec) (vec).size
 
-#define VEC_CAPACITY(vec) (vec).capacity
+#define vec_capacity(vec) (vec).capacity
 
-#define VEC_APPEND(vec, item)                                                  \
+#define vec_push(vec, item)                                                    \
     do {                                                                       \
-        if (VEC_SIZE((vec)) + 1 == VEC_CAPACITY((vec))) {                      \
+        if (vec_size((vec)) + 1 == vec_capacity((vec))) {                      \
             (vec).capacity *= 2;                                               \
             (vec).data =                                                       \
                 realloc((vec).data, (vec).capacity * sizeof((vec).data[0]));   \
@@ -41,37 +41,37 @@
         (vec).data[(vec).size++] = (item);                                     \
     } while (0)
 
-#define VEC_REMOVE(vec, index)                                                 \
+#define vec_pop(vec, index)                                                    \
     do {                                                                       \
-        assert((index) > 0 && (index) < VEC_SIZE((vec)));                      \
+        assert((index) > 0 && (index) < vec_size((vec)));                      \
         memmove((vec).data + (index), (vec).data + (index) + 1,                \
                 (vec).size - (index));                                         \
         (vec).size--;                                                          \
     } while (0)
 
-#define VEC_REMOVE_PTR(vec, ptr)                                               \
+#define vec_pop_cmp(vec, ptr)                                                  \
     do {                                                                       \
-        for (size_t i = 0; i < VEC_SIZE((vec)); ++i) {                         \
-            if ((ptr) == VEC_AT((vec), i)) {                                   \
-                VEC_REMOVE((vec), i);                                          \
+        for (size_t i = 0; i < vec_size((vec)); ++i) {                         \
+            if ((ptr) == vec_at((vec), i)) {                                   \
+                vec_pop((vec), i);                                             \
                 break;                                                         \
             }                                                                  \
         }                                                                      \
     } while (0);
 
-#define VEC_AT(vec, index) (vec).data[(index)]
+#define vec_at(vec, index) (vec).data[(index)]
 
-#define VEC_FIRST(vec) VEC_AT((vec), 0)
+#define vec_first(vec) vec_at((vec), 0)
 
-#define VEC_LAST(vec) VEC_AT((vec), VEC_SIZE((vec)) - 1)
+#define vec_last(vec) vec_at((vec), vec_size((vec)) - 1)
 
-#define VEC_RESIZE(vec, start)                                                 \
+#define vec_resize(vec, start)                                                 \
     do {                                                                       \
         memmove((vec).data, (vec).data + (start), (vec).size - (start));       \
         (vec).size -= (start);                                                 \
     } while (0)
 
-#define VEC_BSEARCH(vec, target, res)                                          \
+#define vec_bsearch(vec, target, res)                                          \
     do {                                                                       \
         if ((vec).data[0] >= (target)) {                                       \
             *(res) = 0;                                                        \
@@ -98,7 +98,7 @@
         }                                                                      \
     } while (0)
 
-#define VEC_BSEARCH_PTR(vec, target, cmp, res)                                 \
+#define vec_bsearch_cmp(vec, target, cmp, res)                                 \
     do {                                                                       \
         if ((cmp)(&(vec).data[0], (target)) >= 0) {                            \
             *(res) = 0;                                                        \

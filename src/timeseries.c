@@ -38,7 +38,7 @@ static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
                          uint64_t base_ts, int main) {
     ts_chunk->base_offset = base_ts;
     for (int i = 0; i < TS_CHUNK_SIZE; ++i)
-        VEC_NEW(ts_chunk->points[i]);
+        vec_new(ts_chunk->points[i]);
     if (wal_init(&ts_chunk->wal, path, ts_chunk->base_offset, main) < 0)
         return -1;
     return 0;
@@ -46,7 +46,7 @@ static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
 
 static void ts_chunk_destroy(Timeseries_Chunk *ts_chunk) {
     for (int i = 0; i < TS_CHUNK_SIZE; ++i)
-        VEC_DESTROY(ts_chunk->points[i]);
+        vec_destroy(ts_chunk->points[i]);
 }
 
 /*
@@ -74,7 +74,7 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
         .is_set = 1,
     };
     // May want to insertion sort here
-    VEC_APPEND(ts_chunk->points[index], point);
+    vec_push(ts_chunk->points[index], point);
 
     return 0;
 }
@@ -84,6 +84,37 @@ Timeseries ts_new(const char *name, uint64_t retention) {
     ts.retention = retention;
     snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
     return ts;
+}
+
+static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
+                              uint64_t base_timestamp, int main) {
+    int err = wal_from_disk(&tc->wal, pathbuf, base_timestamp, main);
+    if (err < 0)
+        return -1;
+
+    uint8_t buf[tc->wal.size + 1];
+    int n = read_file(tc->wal.fd, buf);
+    if (n < 0)
+        return -1;
+
+    ts_chunk_init(tc, pathbuf, base_timestamp, main);
+
+    uint8_t *ptr = buf;
+    uint64_t timestamp;
+    double_t value;
+    while (n > 0) {
+        timestamp = read_i64(ptr);
+        value = read_f64(ptr + sizeof(uint64_t));
+
+        uint64_t sec = timestamp / (uint64_t)1e9;
+        uint64_t nsec = timestamp % (uint64_t)1e9;
+
+        ts_chunk_set_record(tc, sec, nsec, value);
+
+        ptr += sizeof(uint64_t) + sizeof(double_t);
+        n -= (sizeof(uint64_t) + sizeof(double_t));
+    }
+    return 0;
 }
 
 int ts_init(Timeseries *ts) {
@@ -101,63 +132,19 @@ int ts_init(Timeseries *ts) {
         if (strncmp(dot, ".log", 4) == 0) {
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 2);
             if (namelist[i]->d_name[0] == 'm') {
-                err = wal_from_disk(&ts->current_chunk.wal, pathbuf,
-                                    base_timestamp, 1);
-                uint8_t buf[ts->current_chunk.wal.size + 1];
-                int n = read_file(ts->current_chunk.wal.fd, buf);
-                if (n < 0)
-                    goto exit;
-
-                ts_chunk_init(&ts->current_chunk, pathbuf, base_timestamp, 1);
-
-                uint8_t *ptr = buf;
-                uint64_t timestamp;
-                double_t value;
-                while (n > 0) {
-                    timestamp = read_i64(ptr);
-                    value = read_f64(ptr + sizeof(uint64_t));
-
-                    uint64_t sec = timestamp / (uint64_t)1e9;
-                    uint64_t nsec = timestamp % (uint64_t)1e9;
-
-                    ts_chunk_set_record(&ts->current_chunk, sec, nsec, value);
-
-                    ptr += sizeof(uint64_t) + sizeof(double_t);
-                    n -= (sizeof(uint64_t) + sizeof(double_t));
-                }
-                ok = 1;
+                err = ts_chunk_from_disk(&ts->current_chunk, pathbuf,
+                                         base_timestamp, 1);
             } else {
-                err = wal_from_disk(&ts->ooo_chunk.wal, pathbuf, base_timestamp,
-                                    0);
-                uint8_t buf[ts->ooo_chunk.wal.size];
-                int n = read_file(ts->ooo_chunk.wal.fd, buf);
-                if (n < 0)
-                    goto exit;
-
-                ts_chunk_init(&ts->ooo_chunk, pathbuf, base_timestamp, 0);
-
-                uint8_t *ptr = buf;
-                uint64_t timestamp;
-                double_t value;
-                while (n > 0) {
-                    timestamp = read_i64(ptr);
-                    value = read_f64(ptr + sizeof(uint64_t));
-
-                    uint64_t sec = timestamp / (uint64_t)1e9;
-                    uint64_t nsec = timestamp % (uint64_t)1e9;
-
-                    ts_chunk_set_record(&ts->ooo_chunk, sec, nsec, value);
-
-                    ptr += sizeof(uint64_t) + sizeof(double_t);
-                    n -= (sizeof(uint64_t) + sizeof(double_t));
-                }
-                if (err < 0)
-                    goto exit;
-                ok = 1;
+                err = ts_chunk_from_disk(&ts->ooo_chunk, pathbuf,
+                                         base_timestamp, 0);
             }
+            ok = err == 0;
         }
 
         free(namelist[i]);
+
+        if (err < 0)
+            goto exit;
     }
 
     free(namelist);
@@ -165,7 +152,7 @@ int ts_init(Timeseries *ts) {
     return ok;
 
 exit:
-
+    free(namelist);
     return err;
 }
 
@@ -192,6 +179,10 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
 
         return ts_chunk_set_record(&ts->ooo_chunk, sec, nsec, value);
     }
+
+    // TODO
+    // We want to persist here if the timestamp is out of bounds with the
+    // current chunk and create a new in-memory segment, let's error for now
 
     if (ts->current_chunk.base_offset == 0) {
         char pathbuf[PATH_BUF_MAXSIZE];
@@ -221,74 +212,85 @@ static int record_cmp(const Record *r1, const Record *r2) {
     return -1;
 }
 
-Record ts_find_record(const Timeseries *ts, uint64_t timestamp) {
+int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint64_t sec = timestamp / (uint64_t)1e9;
-    size_t index = 0;
+    size_t index = 0, idx = 0;
     Record target = {.timestamp = timestamp};
     // First check the current chunk
-    if (ts->current_chunk.base_offset <= sec &&
-        (index = sec - ts->current_chunk.base_offset) < TS_CHUNK_SIZE) {
-        size_t idx = 0;
-        VEC_BSEARCH_PTR(ts->current_chunk.points[index], &target, record_cmp,
+    if (ts->current_chunk.base_offset <= sec) {
+        if ((index = sec - ts->current_chunk.base_offset) > TS_CHUNK_SIZE)
+            return -1;
+
+        vec_bsearch_cmp(ts->current_chunk.points[index], &target, record_cmp,
                         &idx);
-        Record r = VEC_AT(ts->current_chunk.points[index], idx);
-        return r;
+        Record res = vec_at(ts->current_chunk.points[index], idx);
+        *r = res;
+        return 0;
     }
     // Then check the OOO chunk
-    if (ts->ooo_chunk.base_offset <= sec &&
-        (index = sec - ts->ooo_chunk.base_offset) < TS_CHUNK_SIZE) {
-        size_t idx = 0;
-        VEC_BSEARCH_PTR(ts->ooo_chunk.points[index], &target, record_cmp, &idx);
-        Record r = VEC_AT(ts->ooo_chunk.points[index], idx);
-        return r;
+    if (ts->ooo_chunk.base_offset <= sec) {
+        if ((index = sec - ts->ooo_chunk.base_offset) > TS_CHUNK_SIZE)
+            return -1;
+
+        vec_bsearch_cmp(ts->ooo_chunk.points[index], &target, record_cmp, &idx);
+        Record res = vec_at(ts->ooo_chunk.points[index], idx);
+        *r = res;
+        return 0;
     }
 
     // TODO look for the record on disk
 
-    return (Record){.is_set = 0};
+    return -1;
 }
 
-Points ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1) {
+static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
+                           Points *p) {
     uint64_t sec0 = t0 / (uint64_t)1e9;
-    /* uint64_t nsec0 = t0 % (uint64_t)1e9; */
     uint64_t sec1 = t1 / (uint64_t)1e9;
-    /* uint64_t nsec1 = t1 % (uint64_t)1e9; */
     size_t low, high;
-    Points coll;
-    VEC_NEW(coll);
-    // First check the current chunk
-    if (ts->current_chunk.base_offset <= sec0 &&
-        (low = sec0 - ts->current_chunk.base_offset) < TS_CHUNK_SIZE) {
-        // Find the low
-        Record target = {.timestamp = t0};
-        size_t idx_low = 0;
-        VEC_BSEARCH_PTR(ts->current_chunk.points[low], &target, record_cmp,
-                        &idx_low);
-        // Find the high
-        // TODO let it crash on edge cases for now
-        size_t idx_high = 0;
-        high = sec1 - ts->current_chunk.base_offset;
-        target.timestamp = t1;
-        VEC_BSEARCH_PTR(ts->current_chunk.points[high], &target, record_cmp,
-                        &idx_high);
-        // Collect the records
-        for (size_t i = low; i < high; ++i) {
-            for (size_t j = idx_low; j < VEC_SIZE(ts->current_chunk.points[i]);
-                 ++j) {
-                VEC_APPEND(coll, VEC_AT(ts->current_chunk.points[i], j));
-            }
-            idx_low = 0;
+    // Find the low
+    low = sec0 - tc->base_offset;
+    Record target = {.timestamp = t0};
+    size_t idx_low = 0;
+    vec_bsearch_cmp(tc->points[low], &target, record_cmp, &idx_low);
+    // Find the high
+    // TODO let it crash on edge cases for now
+    size_t idx_high = 0;
+    high = sec1 - tc->base_offset;
+    target.timestamp = t1;
+    vec_bsearch_cmp(tc->points[high], &target, record_cmp, &idx_high);
+    // Collect the records
+    for (size_t i = low; i < high + 1; ++i) {
+        size_t end = i == high ? idx_high : vec_size(tc->points[i]);
+        for (size_t j = idx_low; j < end; ++j) {
+            Record r = vec_at(tc->points[i], j);
+            vec_push(*p, r);
         }
+        idx_low = 0;
+    }
+}
+
+int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
+    uint64_t sec0 = t0 / (uint64_t)1e9;
+    // First check the current chunk
+    if (ts->current_chunk.base_offset <= sec0) {
+        if (sec0 - ts->current_chunk.base_offset > TS_CHUNK_SIZE)
+            return -1;
+        ts_chunk_range(&ts->current_chunk, t0, t1, p);
+    } else {
+        if (sec0 - ts->ooo_chunk.base_offset > TS_CHUNK_SIZE)
+            return -1;
+        ts_chunk_range(&ts->ooo_chunk, t0, t1, p);
     }
 
-    return coll;
+    return 0;
 }
 
 void ts_print(const Timeseries *ts) {
     for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
         Points p = ts->current_chunk.points[i];
-        for (size_t j = 0; j < VEC_SIZE(p); ++j) {
-            Record r = VEC_AT(p, j);
+        for (size_t j = 0; j < vec_size(p); ++j) {
+            Record r = vec_at(p, j);
             if (!r.is_set)
                 continue;
             printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}\n", r.timestamp,

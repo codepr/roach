@@ -62,9 +62,9 @@ void ts_destroy(Timeseries *ts);
 
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
 
-Record ts_find_record(const Timeseries *ts, uint64_t timestamp);
+int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r);
 
-Points ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1);
+int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p);
 
 void ts_print(const Timeseries *ts);
 
