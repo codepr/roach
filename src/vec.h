@@ -71,6 +71,18 @@
         (vec).size -= (start);                                                 \
     } while (0)
 
+#define vec_search_cmp(vec, target, cmp, res)                                  \
+    do {                                                                       \
+        *(res) = 0;                                                            \
+        if ((cmp)(&(vec).data[0], (target)) < 1) {                             \
+            for (size_t i = 0; i < vec_size((vec)); ++i) {                     \
+                if ((cmp)(&(vec).data[i], (target)) == 0) {                    \
+                    *(res) = i;                                                \
+                }                                                              \
+            }                                                                  \
+        }                                                                      \
+    } while (0)
+
 #define vec_bsearch(vec, target, res)                                          \
     do {                                                                       \
         if ((vec).data[0] >= (target)) {                                       \

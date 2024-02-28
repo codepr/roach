@@ -221,8 +221,12 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
         if ((index = sec - ts->current_chunk.base_offset) > TS_CHUNK_SIZE)
             return -1;
 
-        vec_bsearch_cmp(ts->current_chunk.points[index], &target, record_cmp,
-                        &idx);
+        if (vec_size(ts->current_chunk.points[index]) < 128)
+            vec_search_cmp(ts->current_chunk.points[index], &target, record_cmp,
+                           &idx);
+        else
+            vec_bsearch_cmp(ts->current_chunk.points[index], &target,
+                            record_cmp, &idx);
         Record res = vec_at(ts->current_chunk.points[index], idx);
         *r = res;
         return 0;
@@ -231,8 +235,12 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     if (ts->ooo_chunk.base_offset <= sec) {
         if ((index = sec - ts->ooo_chunk.base_offset) > TS_CHUNK_SIZE)
             return -1;
-
-        vec_bsearch_cmp(ts->ooo_chunk.points[index], &target, record_cmp, &idx);
+        if (vec_size(ts->ooo_chunk.points[index]) < 128)
+            vec_search_cmp(ts->ooo_chunk.points[index], &target, record_cmp,
+                           &idx);
+        else
+            vec_bsearch_cmp(ts->ooo_chunk.points[index], &target, record_cmp,
+                            &idx);
         Record res = vec_at(ts->ooo_chunk.points[index], idx);
         *r = res;
         return 0;
@@ -252,13 +260,19 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
     low = sec0 - tc->base_offset;
     Record target = {.timestamp = t0};
     size_t idx_low = 0;
-    vec_bsearch_cmp(tc->points[low], &target, record_cmp, &idx_low);
+    if (vec_size(tc->points[low]) < 128)
+        vec_search_cmp(tc->points[low], &target, record_cmp, &idx_low);
+    else
+        vec_bsearch_cmp(tc->points[low], &target, record_cmp, &idx_low);
     // Find the high
     // TODO let it crash on edge cases for now
     size_t idx_high = 0;
     high = sec1 - tc->base_offset;
     target.timestamp = t1;
-    vec_bsearch_cmp(tc->points[high], &target, record_cmp, &idx_high);
+    if (vec_size(tc->points[high]) < 128)
+        vec_search_cmp(tc->points[high], &target, record_cmp, &idx_high);
+    else
+        vec_bsearch_cmp(tc->points[high], &target, record_cmp, &idx_high);
     // Collect the records
     for (size_t i = low; i < high + 1; ++i) {
         size_t end = i == high ? idx_high : vec_size(tc->points[i]);
