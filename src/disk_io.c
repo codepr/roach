@@ -1,5 +1,6 @@
 #include "disk_io.h"
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -36,6 +37,31 @@ ssize_t get_file_size(FILE *fp, long offset) {
     // reset to offset
     fseek(fp, offset, SEEK_SET);
     return size;
+}
+
+ssize_t buf_read_file(FILE *fp, Buffer *buffer) {
+    /* Get the buffer size */
+    if (fseek(fp, 0, SEEK_END) < 0) {
+        perror("fseek");
+        return -1;
+    }
+
+    size_t size = ftell(fp);
+
+    /* Set position of stream to the beginning */
+    rewind(fp);
+
+    /* Allocate the buffer (no need to initialize it with calloc) */
+    buffer->buf = calloc(size + 1, sizeof(uint8_t));
+
+    /* Read the file into the buffer */
+    fread(buffer->buf, 1, size, fp);
+
+    buffer->size = size;
+
+    /* NULL-terminate the buffer */
+    buffer->buf[size] = '\0';
+    return 0;
 }
 
 ssize_t read_file(FILE *fp, uint8_t *buf) {

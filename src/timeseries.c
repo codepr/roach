@@ -306,3 +306,37 @@ void ts_print(const Timeseries *ts) {
         }
     }
 }
+
+static size_t record_binary_size() {
+    return sizeof(uint64_t) + sizeof(uint64_t) + sizeof(double_t);
+}
+
+size_t ts_record_timestamp(const uint8_t *buf) {
+    return read_i64(buf + sizeof(uint64_t));
+}
+
+size_t ts_record_write(const Record *r, uint8_t *buf) {
+    // Record full size u64
+    size_t record_size = record_binary_size();
+    write_i64(buf, record_size);
+    buf += sizeof(uint64_t);
+    // Timestamp u64
+    write_i64(buf, r->timestamp);
+    buf += sizeof(uint64_t);
+    // Value
+    write_f64(buf, r->value);
+    return record_size;
+}
+
+size_t ts_record_read(Record *r, const uint8_t *buf) {
+    // Record size u64
+    size_t record_size = read_i64(buf);
+    buf += sizeof(uint64_t);
+    // Timestamp u64
+    r->timestamp = read_i64(buf);
+    buf += sizeof(uint64_t);
+    // Value
+    r->value = read_f64(buf);
+
+    return record_size;
+}

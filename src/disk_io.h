@@ -4,11 +4,18 @@
 #include <stdint.h>
 #include <stdio.h>
 
+typedef struct buffer {
+    uint8_t *buf;
+    size_t size;
+} Buffer;
+
 int make_dir(const char *path);
 
 FILE *open_file(const char *path, const char *ext, uint64_t base);
 
 ssize_t get_file_size(FILE *fp, long offset);
+
+ssize_t buf_read_file(FILE *fp, Buffer *b);
 
 ssize_t read_file(FILE *fp, uint8_t *buf);
 

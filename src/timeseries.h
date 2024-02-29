@@ -51,6 +51,12 @@ typedef struct timeseries {
     Timeseries_Chunk prev;
 } Timeseries;
 
+size_t ts_record_timestamp(const uint8_t *buf);
+
+size_t ts_record_write(const Record *r, uint8_t *buf);
+
+size_t ts_record_read(Record *r, const uint8_t *buf);
+
 int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
                         double_t value);
 
