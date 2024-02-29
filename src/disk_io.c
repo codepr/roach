@@ -39,7 +39,7 @@ ssize_t get_file_size(FILE *fp, long offset) {
     return size;
 }
 
-ssize_t buf_read_file(FILE *fp, Buffer *buffer) {
+int buf_read_file(FILE *fp, Buffer *buffer) {
     /* Get the buffer size */
     if (fseek(fp, 0, SEEK_END) < 0) {
         perror("fseek");

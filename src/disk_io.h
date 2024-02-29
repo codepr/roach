@@ -15,7 +15,7 @@ FILE *open_file(const char *path, const char *ext, uint64_t base);
 
 ssize_t get_file_size(FILE *fp, long offset);
 
-ssize_t buf_read_file(FILE *fp, Buffer *b);
+int buf_read_file(FILE *fp, Buffer *b);
 
 ssize_t read_file(FILE *fp, uint8_t *buf);
 

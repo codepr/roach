@@ -41,7 +41,7 @@ int p_log_from_disk(Persistent_Log *pl, const char *path, uint64_t base) {
 }
 
 int p_log_append_data(Persistent_Log *pl, const uint8_t *data, size_t len) {
-    int bytes = write_at(pl->fp, data, len, pl->size);
+    int bytes = write_at(pl->fp, data, pl->size, len);
     if (bytes < 0) {
         perror("write_at");
         return -1;
@@ -51,7 +51,19 @@ int p_log_append_data(Persistent_Log *pl, const uint8_t *data, size_t len) {
     return 0;
 }
 
+int p_log_append_batch(Persistent_Log *pl, const uint8_t *batch, size_t len) {
+    pl->current_timestamp = ts_record_timestamp(batch);
+    int bytes = write_at(pl->fp, batch + sizeof(uint64_t) * 2, pl->size,
+                         len - (sizeof(uint64_t) * 2));
+    if (bytes < 0) {
+        perror("write_at");
+        return -1;
+    }
+    pl->size += len - (sizeof(uint64_t) * 2);
+    return 0;
+}
+
 int p_log_read_at(const Persistent_Log *pl, uint8_t **buf, size_t offset,
                   size_t len) {
-    return read_at(pl->fp, *buf, len, offset);
+    return read_at(pl->fp, *buf, offset, len);
 }

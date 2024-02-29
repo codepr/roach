@@ -340,3 +340,17 @@ size_t ts_record_read(Record *r, const uint8_t *buf) {
 
     return record_size;
 }
+
+size_t ts_record_batch_write(const Record *r[], uint8_t *buf, size_t count) {
+    uint64_t last_timestamp = r[count - 1]->timestamp;
+    // For now we assume fixed size of records
+    uint64_t batch_size = count * ((sizeof(uint64_t) * 2) + sizeof(double_t));
+    write_i64(buf, batch_size);
+    write_i64(buf + sizeof(uint64_t), last_timestamp);
+    size_t offset = sizeof(uint64_t) * 2;
+    for (size_t i = 0; i < count; ++i) {
+        ts_record_write(r[i], buf + offset);
+        offset += record_binary_size();
+    }
+    return batch_size;
+}
