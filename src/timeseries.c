@@ -132,11 +132,9 @@ int ts_init(Timeseries *ts) {
         if (strncmp(dot, ".log", 4) == 0) {
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 2);
             if (namelist[i]->d_name[0] == 'm') {
-                err = ts_chunk_from_disk(&ts->current_chunk, pathbuf,
-                                         base_timestamp, 1);
+                err = ts_chunk_from_disk(&ts->head, pathbuf, base_timestamp, 1);
             } else {
-                err = ts_chunk_from_disk(&ts->ooo_chunk, pathbuf,
-                                         base_timestamp, 0);
+                err = ts_chunk_from_disk(&ts->prev, pathbuf, base_timestamp, 0);
             }
             ok = err == 0;
         }
@@ -157,42 +155,42 @@ exit:
 }
 
 void ts_destroy(Timeseries *ts) {
-    ts_chunk_destroy(&ts->current_chunk);
-    ts_chunk_destroy(&ts->ooo_chunk);
+    ts_chunk_destroy(&ts->head);
+    ts_chunk_destroy(&ts->prev);
 }
 
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     uint64_t sec = timestamp / (uint64_t)1e9;
     uint64_t nsec = timestamp % (uint64_t)1e9;
     // Let it crash for now if the timestamp is out of bounds in the ooo
-    if (sec < ts->current_chunk.base_offset) {
+    if (sec < ts->head.base_offset) {
         // If the chunk is empty, it also means the base offset is 0, we set
         // it here with the first record inserted
-        if (ts->ooo_chunk.base_offset == 0) {
+        if (ts->prev.base_offset == 0) {
             char pathbuf[PATH_BUF_MAXSIZE];
             snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
-            ts_chunk_init(&ts->ooo_chunk, pathbuf, sec, 0);
+            ts_chunk_init(&ts->prev, pathbuf, sec, 0);
         }
 
         // Persist to disk for disaster recovery
-        wal_append_record(&ts->ooo_chunk.wal, timestamp, value);
+        wal_append_record(&ts->prev.wal, timestamp, value);
 
-        return ts_chunk_set_record(&ts->ooo_chunk, sec, nsec, value);
+        return ts_chunk_set_record(&ts->prev, sec, nsec, value);
     }
 
     // TODO
     // We want to persist here if the timestamp is out of bounds with the
     // current chunk and create a new in-memory segment, let's error for now
 
-    if (ts->current_chunk.base_offset == 0) {
+    if (ts->head.base_offset == 0) {
         char pathbuf[PATH_BUF_MAXSIZE];
         snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
-        ts_chunk_init(&ts->current_chunk, pathbuf, sec, 1);
+        ts_chunk_init(&ts->head, pathbuf, sec, 1);
     }
 
     // Persist to disk for disaster recovery
-    wal_append_record(&ts->current_chunk.wal, timestamp, value);
-    return ts_chunk_set_record(&ts->current_chunk, sec, nsec, value);
+    wal_append_record(&ts->head.wal, timestamp, value);
+    return ts_chunk_set_record(&ts->head, sec, nsec, value);
 }
 
 /*
@@ -217,31 +215,27 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     size_t index = 0, idx = 0;
     Record target = {.timestamp = timestamp};
     // First check the current chunk
-    if (ts->current_chunk.base_offset <= sec) {
-        if ((index = sec - ts->current_chunk.base_offset) > TS_CHUNK_SIZE)
+    if (ts->head.base_offset <= sec) {
+        if ((index = sec - ts->head.base_offset) > TS_CHUNK_SIZE)
             return -1;
 
-        if (vec_size(ts->current_chunk.points[index]) < 128)
-            vec_search_cmp(ts->current_chunk.points[index], &target, record_cmp,
-                           &idx);
+        if (vec_size(ts->head.points[index]) < 128)
+            vec_search_cmp(ts->head.points[index], &target, record_cmp, &idx);
         else
-            vec_bsearch_cmp(ts->current_chunk.points[index], &target,
-                            record_cmp, &idx);
-        Record res = vec_at(ts->current_chunk.points[index], idx);
+            vec_bsearch_cmp(ts->head.points[index], &target, record_cmp, &idx);
+        Record res = vec_at(ts->head.points[index], idx);
         *r = res;
         return 0;
     }
     // Then check the OOO chunk
-    if (ts->ooo_chunk.base_offset <= sec) {
-        if ((index = sec - ts->ooo_chunk.base_offset) > TS_CHUNK_SIZE)
+    if (ts->prev.base_offset <= sec) {
+        if ((index = sec - ts->prev.base_offset) > TS_CHUNK_SIZE)
             return -1;
-        if (vec_size(ts->ooo_chunk.points[index]) < 128)
-            vec_search_cmp(ts->ooo_chunk.points[index], &target, record_cmp,
-                           &idx);
+        if (vec_size(ts->prev.points[index]) < 128)
+            vec_search_cmp(ts->prev.points[index], &target, record_cmp, &idx);
         else
-            vec_bsearch_cmp(ts->ooo_chunk.points[index], &target, record_cmp,
-                            &idx);
-        Record res = vec_at(ts->ooo_chunk.points[index], idx);
+            vec_bsearch_cmp(ts->prev.points[index], &target, record_cmp, &idx);
+        Record res = vec_at(ts->prev.points[index], idx);
         *r = res;
         return 0;
     }
@@ -287,14 +281,14 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
 int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
     uint64_t sec0 = t0 / (uint64_t)1e9;
     // First check the current chunk
-    if (ts->current_chunk.base_offset <= sec0) {
-        if (sec0 - ts->current_chunk.base_offset > TS_CHUNK_SIZE)
+    if (ts->head.base_offset <= sec0) {
+        if (sec0 - ts->head.base_offset > TS_CHUNK_SIZE)
             return -1;
-        ts_chunk_range(&ts->current_chunk, t0, t1, p);
+        ts_chunk_range(&ts->head, t0, t1, p);
     } else {
-        if (sec0 - ts->ooo_chunk.base_offset > TS_CHUNK_SIZE)
+        if (sec0 - ts->prev.base_offset > TS_CHUNK_SIZE)
             return -1;
-        ts_chunk_range(&ts->ooo_chunk, t0, t1, p);
+        ts_chunk_range(&ts->prev, t0, t1, p);
     }
 
     return 0;
@@ -302,7 +296,7 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
 
 void ts_print(const Timeseries *ts) {
     for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
-        Points p = ts->current_chunk.points[i];
+        Points p = ts->head.points[i];
         for (size_t j = 0; j < vec_size(p); ++j) {
             Record r = vec_at(p, j);
             if (!r.is_set)

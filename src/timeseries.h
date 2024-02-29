@@ -47,8 +47,8 @@ typedef struct timeseries_chunk {
 typedef struct timeseries {
     int64_t retention;
     char name[TS_NAME_MAX_LENGTH];
-    Timeseries_Chunk current_chunk;
-    Timeseries_Chunk ooo_chunk;
+    Timeseries_Chunk head;
+    Timeseries_Chunk prev;
 } Timeseries;
 
 int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,

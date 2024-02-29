@@ -19,7 +19,7 @@ int main(void) {
             uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec;
             timestamps[i] = timestamp;
             ts_set_record(&ts, timestamp, (double_t)i);
-            usleep(10000);
+            /* usleep(10000); */
         }
     }
 
