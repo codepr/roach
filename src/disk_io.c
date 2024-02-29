@@ -1,9 +1,19 @@
 #include "disk_io.h"
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 static const size_t MAX_PATH_SIZE = 512;
+
+int make_dir(const char *path) {
+    struct stat st = {0};
+
+    if (stat(path, &st) == -1) {
+        return mkdir(path, 0700);
+    }
+    return 0;
+}
 
 FILE *open_file(const char *path, const char *ext, uint64_t base) {
     char path_buf[MAX_PATH_SIZE];
@@ -14,6 +24,18 @@ FILE *open_file(const char *path, const char *ext, uint64_t base) {
         return NULL;
     }
     return fp;
+}
+
+ssize_t get_file_size(FILE *fp, long offset) {
+    if (fseek(fp, 0, SEEK_END) < 0) {
+        fclose(fp);
+        return -1;
+    }
+
+    ssize_t size = ftell(fp);
+    // reset to offset
+    fseek(fp, offset, SEEK_SET);
+    return size;
 }
 
 ssize_t read_file(FILE *fp, uint8_t *buf) {
