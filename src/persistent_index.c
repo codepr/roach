@@ -4,6 +4,7 @@
 
 // relative timestamp -> main segment offset position in the file
 static const size_t ENTRY_SIZE = sizeof(uint64_t) * 2;
+static const size_t RANGE_SIZE = 1 << 9;
 
 int p_index_init(Persistent_Index *pi, const char *path, uint64_t base,
                  uint32_t interval) {
@@ -37,7 +38,7 @@ int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset) {
     write_i64(buf, relative_ts);
     write_i64(buf + sizeof(uint64_t), offset);
 
-    if (write_at(pi->fp, buf, ENTRY_SIZE, pi->size) < 0) {
+    if (write_at(pi->fp, buf, pi->size, ENTRY_SIZE) < 0) {
         perror("write_at");
         return -1;
     }
@@ -60,9 +61,10 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
                        ? start + (ENTRY_SIZE * 2)
                        : pi->size;
 
-    uint8_t buf[end - start];
+    // 512b should be enough for any range
+    uint8_t buf[RANGE_SIZE];
 
-    if (read_at(pi->fp, buf, end - start, start) < 0) {
+    if (read_at(pi->fp, buf, start, end - start) < 0) {
         perror("read_at");
         *r = (Range){{0}, {0}};
         return -1;

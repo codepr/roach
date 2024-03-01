@@ -92,7 +92,7 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
     if (err < 0)
         return -1;
 
-    uint8_t buf[tc->wal.size + 1];
+    uint8_t *buf = malloc(tc->wal.size + 1);
     int n = read_file(tc->wal.fd, buf);
     if (n < 0)
         return -1;
@@ -114,6 +114,9 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
         ptr += sizeof(uint64_t) + sizeof(double_t);
         n -= (sizeof(uint64_t) + sizeof(double_t));
     }
+
+    free(buf);
+
     return 0;
 }
 
@@ -349,8 +352,7 @@ size_t ts_record_batch_write(const Record *r[], uint8_t *buf, size_t count) {
     write_i64(buf + sizeof(uint64_t), last_timestamp);
     size_t offset = sizeof(uint64_t) * 2;
     for (size_t i = 0; i < count; ++i) {
-        ts_record_write(r[i], buf + offset);
-        offset += record_binary_size();
+        offset += ts_record_write(r[i], buf + offset);
     }
     return batch_size;
 }

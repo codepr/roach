@@ -1,3 +1,4 @@
+#include "partition.h"
 #include "timeseries.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +9,7 @@
 
 int main(void) {
     uint64_t timestamps[POINTS_NR];
+    Partition p;
     Timeseries ts = ts_new("tsdata", 0);
     int ok = ts_init(&ts);
     printf("ok = %i\n", ok);
@@ -21,6 +23,8 @@ int main(void) {
             ts_set_record(&ts, timestamp, (double_t)i);
             /* usleep(10000); */
         }
+        printf("Dumping\n");
+        partition_dump_timeseries_chunk(&p, &ts.head);
     }
 
     ts_print(&ts);

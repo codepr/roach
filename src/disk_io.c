@@ -84,12 +84,12 @@ ssize_t read_file(FILE *fp, uint8_t *buf) {
     return size;
 }
 
-ssize_t read_at(FILE *fp, uint8_t *buf, size_t count, size_t offset) {
+ssize_t read_at(FILE *fp, uint8_t *buf, size_t offset, size_t len) {
     int fd = fileno(fp);
-    return pread(fd, buf, count, offset);
+    return pread(fd, buf, len, offset);
 }
 
-ssize_t write_at(FILE *fp, const uint8_t *buf, size_t count, size_t offset) {
+ssize_t write_at(FILE *fp, const uint8_t *buf, size_t offset, size_t len) {
     int fd = fileno(fp);
-    return pwrite(fd, buf, count, offset);
+    return pwrite(fd, buf, len, offset);
 }
