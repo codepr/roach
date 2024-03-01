@@ -52,7 +52,6 @@ int c_log_append_data(Commit_Log *cl, const uint8_t *data, size_t len) {
 }
 
 int c_log_append_batch(Commit_Log *cl, const uint8_t *batch, size_t len) {
-    printf("Writing %lu\n", len);
     cl->current_timestamp = ts_record_timestamp(batch);
     int bytes = write_at(cl->fp, batch + sizeof(uint64_t) * 2, cl->size,
                          len - (sizeof(uint64_t) * 2));
@@ -60,7 +59,7 @@ int c_log_append_batch(Commit_Log *cl, const uint8_t *batch, size_t len) {
         perror("write_at");
         return -1;
     }
-    printf("Written %i\n", bytes);
+    
     cl->size += len - (sizeof(uint64_t) * 2);
     return 0;
 }

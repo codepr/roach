@@ -1,5 +1,6 @@
 #include "timeseries.h"
 #include "binary.h"
+#include "logging.h"
 #include <assert.h>
 #include <dirent.h>
 #include <stdio.h>
@@ -304,8 +305,8 @@ void ts_print(const Timeseries *ts) {
             Record r = vec_at(p, j);
             if (!r.is_set)
                 continue;
-            printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}\n", r.timestamp,
-                   r.tv.tv_sec, r.tv.tv_nsec, r.value);
+            log_info("%lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp,
+                     r.tv.tv_sec, r.tv.tv_nsec, r.value);
         }
     }
 }

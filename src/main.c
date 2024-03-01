@@ -1,3 +1,4 @@
+#include "logging.h"
 #include "partition.h"
 #include "timeseries.h"
 #include <stdio.h>
@@ -12,9 +13,9 @@ int main(void) {
     Partition p;
     Timeseries ts = ts_new("tsdata", 0);
     int ok = ts_init(&ts);
-    printf("ok = %i\n", ok);
+    log_info("ok = %i\n", ok);
     if (!ok) {
-        printf("Init\n");
+        log_info("Init");
         struct timespec tv;
         for (int i = 0; i < POINTS_NR; ++i) {
             clock_gettime(CLOCK_REALTIME, &tv);
@@ -23,27 +24,27 @@ int main(void) {
             ts_set_record(&ts, timestamp, (double_t)i);
             /* usleep(10000); */
         }
-        printf("Dumping\n");
+        log_info("Dumping");
         partition_dump_timeseries_chunk(&p, &ts.head);
     }
 
     ts_print(&ts);
 
-    printf("\nFind single record at %lu\n\n", timestamps[3]);
+    log_info("Find single record at %lu\n", timestamps[3]);
     Record r;
     (void)ts_find_record(&ts, timestamps[3], &r);
-    printf(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f\n", r.timestamp,
-           r.tv.tv_sec, r.tv.tv_nsec, r.value);
+    log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
-    printf("\nFind range records at %lu - %lu\n\n", timestamps[2],
-           timestamps[88]);
+    log_info("Find range records at %lu - %lu\n", timestamps[2],
+             timestamps[88]);
     Points coll;
     vec_new(coll);
     (void)ts_range(&ts, timestamps[2], timestamps[88], &coll);
     for (size_t i = 0; i < vec_size(coll); i++) {
         Record r = vec_at(coll, i);
-        printf(" %lu {.sec: %lu, .nsec: %lu .value: %.02f\n", r.timestamp,
-               r.tv.tv_sec, r.tv.tv_nsec, r.value);
+        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp,
+                 r.tv.tv_sec, r.tv.tv_nsec, r.value);
     }
 
     vec_destroy(coll);

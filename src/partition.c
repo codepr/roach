@@ -1,5 +1,6 @@
 #include "partition.h"
 #include "commit_log.h"
+#include "logging.h"
 #include "persistent_index.h"
 #include "timeseries.h"
 #include "vec.h"
@@ -39,7 +40,7 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
             continue;
         for (size_t j = 0; j < vec_size(tc->points[i]); ++j) {
             if (count > 0 && count % INTERVAL == 0) {
-                printf("Write %lu\n", count);
+                log_info("Write %lu", count);
                 size_t len = ts_record_batch_write(
                     (const Record **)(dump.data +
                                       (count - INTERVAL) * sizeof(Record *)),
@@ -62,7 +63,6 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
 
     // Finish up any remaining record
     size_t rem = count != 0 && count % INTERVAL;
-    printf("Interval %lu Rem %lu size %lu\n", count, rem, vec_size(dump));
     if (rem != 0) {
         size_t len = ts_record_batch_write(
             (const Record **)(&dump.data[(count - rem)]), buf, rem);
