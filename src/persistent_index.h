@@ -21,8 +21,8 @@ typedef struct persistent_index {
  * start and end bounds.
  */
 typedef struct range {
-    uint64_t start[2];
-    uint64_t end[2];
+    int64_t start;
+    int64_t end;
 } Range;
 
 int p_index_init(Persistent_Index *pi, const char *path, uint64_t base,
@@ -36,5 +36,7 @@ int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base,
 int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset);
 
 int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r);
+
+void p_index_print(const Persistent_Index *pi);
 
 #endif

@@ -1,10 +1,11 @@
 #include "persistent_index.h"
 #include "binary.h"
 #include "disk_io.h"
+#include "logging.h"
 
 // relative timestamp -> main segment offset position in the file
 static const size_t ENTRY_SIZE = sizeof(uint64_t) * 2;
-static const size_t RANGE_SIZE = 1 << 9;
+static const size_t INDEX_SIZE = 1 << 12;
 
 int p_index_init(Persistent_Index *pi, const char *path, uint64_t base,
                  uint32_t interval) {
@@ -31,7 +32,7 @@ int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base,
 }
 
 int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset) {
-    uint64_t relative_ts = ts - pi->base_timestamp;
+    uint64_t relative_ts = ts - (pi->base_timestamp * 1e9);
 
     // Serialize the position into integer 64bits
     uint8_t buf[ENTRY_SIZE];
@@ -50,52 +51,60 @@ int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset) {
 
 int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
     if (pi->size == 0) {
-        *r = (Range){{0}, {0}};
+        *r = (Range){0, 0};
         return 0;
     }
 
-    uint64_t relative_ts = ts - pi->base_timestamp;
-    uint64_t start = (relative_ts / pi->interval) * ENTRY_SIZE;
-    start = start == 0 ? start : start - ENTRY_SIZE;
-    uint64_t end = pi->size >= (start + (ENTRY_SIZE * 2))
-                       ? start + (ENTRY_SIZE * 2)
-                       : pi->size;
+    uint64_t base_ts = pi->base_timestamp * 1e9;
 
-    // 512b should be enough for any range
-    uint8_t buf[RANGE_SIZE];
-
-    if (read_at(pi->fp, buf, start, end - start) < 0) {
-        perror("read_at");
-        *r = (Range){{0}, {0}};
+    // 1st simple approach, read the entire file and look for the offset
+    // linearly
+    uint8_t buf[INDEX_SIZE];
+    ssize_t len = read_file(pi->fp, buf);
+    if (len < 0)
         return -1;
+
+    uint8_t *ptr = &buf[0];
+    int64_t prev_offset = 0, offset = 0;
+    uint64_t timestamp = 0, entry_ts = 0;
+    while (len > 0) {
+        // Decode from binary
+        timestamp = read_i64(ptr);
+        offset = read_i64(ptr + sizeof(uint64_t));
+        entry_ts = timestamp + base_ts;
+        // We went too forward
+        if (entry_ts > ts)
+            break;
+        // Remember the just read offset
+        prev_offset = offset;
+        // Found exact match
+        if (entry_ts == ts)
+            break;
+        // Forward the pointer and subtract the total length
+        ptr += sizeof(uint64_t) * 2;
+        len -= sizeof(uint64_t) * 2;
     }
 
-    uint64_t record_relative_offset, record_position;
-    int entry_size = 0;
-    uint64_t positions[2][2] = {0};
+    // -1 as end only in the case where we read the entire index and we didn't
+    // find anything close to the request timestamp, which means it must be
+    // at the end of the log
+    r->start = prev_offset;
+    r->end = len == 0 ? -1 : offset;
 
-    int p_steps = (end - start) / ENTRY_SIZE;
-
-    for (int i = 0; i < p_steps; i++) {
-        entry_size = ENTRY_SIZE * i;
-        record_relative_offset = read_i64(buf + entry_size);
-        record_position = read_i64(buf + entry_size + (ENTRY_SIZE / 2));
-        positions[i][0] = record_relative_offset;
-        positions[i][1] = record_position;
-    }
-
-    if (ts < positions[0][0]) {
-        *r = (Range){{0}, {positions[0][0], positions[0][1]}};
-        return 0;
-    }
-
-    if (end - start > 1) {
-        *r = (Range){{positions[0][0], positions[0][1]},
-                     {positions[1][0], positions[1][1]}};
-        return 0;
-    }
-
-    *r = (Range){{positions[0][0], positions[0][1]},
-                 {positions[0][0], positions[0][1]}};
     return 0;
+}
+
+void p_index_print(const Persistent_Index *pi) {
+    uint8_t buf[INDEX_SIZE];
+    uint8_t *p = &buf[0];
+    ssize_t read = 0;
+    uint64_t ts = 0, value = 0;
+    ssize_t len = read_file(pi->fp, buf);
+    while (read < len) {
+        ts = read_i64(p);
+        value = read_i64(p + sizeof(uint64_t));
+        read += ENTRY_SIZE;
+        p += ENTRY_SIZE;
+        log_info("%lu -> %lu", ts, value);
+    }
 }

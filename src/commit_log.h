@@ -23,4 +23,6 @@ int c_log_append_batch(Commit_Log *cl, const uint8_t *batch, size_t len);
 int c_log_read_at(const Commit_Log *cl, uint8_t **buf, size_t offset,
                   size_t len);
 
+void c_log_print(const Commit_Log *cl);
+
 #endif

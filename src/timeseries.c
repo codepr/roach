@@ -8,6 +8,7 @@
 
 static const char *BASE_PATH = "logdata";
 static const size_t PATH_BUF_MAXSIZE = 1 << 10;
+static const size_t LINEAR_THRESHOLD = 192;
 
 static ssize_t read_file(int fd, uint8_t *buf) {
     FILE *fp = fdopen(fd, "r");
@@ -223,7 +224,7 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
         if ((index = sec - ts->head.base_offset) > TS_CHUNK_SIZE)
             return -1;
 
-        if (vec_size(ts->head.points[index]) < 128)
+        if (vec_size(ts->head.points[index]) < LINEAR_THRESHOLD)
             vec_search_cmp(ts->head.points[index], &target, record_cmp, &idx);
         else
             vec_bsearch_cmp(ts->head.points[index], &target, record_cmp, &idx);
@@ -235,7 +236,7 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     if (ts->prev.base_offset <= sec) {
         if ((index = sec - ts->prev.base_offset) > TS_CHUNK_SIZE)
             return -1;
-        if (vec_size(ts->prev.points[index]) < 128)
+        if (vec_size(ts->prev.points[index]) < LINEAR_THRESHOLD)
             vec_search_cmp(ts->prev.points[index], &target, record_cmp, &idx);
         else
             vec_bsearch_cmp(ts->prev.points[index], &target, record_cmp, &idx);
@@ -253,28 +254,26 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
                            Points *p) {
     uint64_t sec0 = t0 / (uint64_t)1e9;
     uint64_t sec1 = t1 / (uint64_t)1e9;
-    size_t low, high;
+    size_t low, high, idx_low = 0, idx_high = 0;
     // Find the low
     low = sec0 - tc->base_offset;
     Record target = {.timestamp = t0};
-    size_t idx_low = 0;
-    if (vec_size(tc->points[low]) < 128)
+    if (vec_size(tc->points[low]) < LINEAR_THRESHOLD)
         vec_search_cmp(tc->points[low], &target, record_cmp, &idx_low);
     else
         vec_bsearch_cmp(tc->points[low], &target, record_cmp, &idx_low);
     // Find the high
     // TODO let it crash on edge cases for now
-    size_t idx_high = 0;
     high = sec1 - tc->base_offset;
     target.timestamp = t1;
-    if (vec_size(tc->points[high]) < 128)
+    if (vec_size(tc->points[high]) < LINEAR_THRESHOLD)
         vec_search_cmp(tc->points[high], &target, record_cmp, &idx_high);
     else
         vec_bsearch_cmp(tc->points[high], &target, record_cmp, &idx_high);
     // Collect the records
     for (size_t i = low; i < high + 1; ++i) {
         size_t end = i == high ? idx_high : vec_size(tc->points[i]);
-        for (size_t j = idx_low; j < end; ++j) {
+        for (size_t j = idx_low; j < end + 1; ++j) {
             Record r = vec_at(tc->points[i], j);
             vec_push(*p, r);
         }

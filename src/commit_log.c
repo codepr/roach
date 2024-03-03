@@ -1,4 +1,5 @@
 #include "commit_log.h"
+#include "logging.h"
 #include "binary.h"
 #include "disk_io.h"
 #include "timeseries.h"
@@ -54,17 +55,33 @@ int c_log_append_data(Commit_Log *cl, const uint8_t *data, size_t len) {
 int c_log_append_batch(Commit_Log *cl, const uint8_t *batch, size_t len) {
     cl->current_timestamp = ts_record_timestamp(batch);
     int bytes = write_at(cl->fp, batch + sizeof(uint64_t) * 2, cl->size,
-                         len - (sizeof(uint64_t) * 2));
+                         len);
     if (bytes < 0) {
         perror("write_at");
         return -1;
     }
-    
-    cl->size += len - (sizeof(uint64_t) * 2);
+
+    cl->size += len;
     return 0;
 }
 
 int c_log_read_at(const Commit_Log *cl, uint8_t **buf, size_t offset,
                   size_t len) {
     return read_at(cl->fp, *buf, offset, len);
+}
+
+void c_log_print(const Commit_Log *cl) {
+    uint8_t buf[4096];
+    uint8_t *p = &buf[0];
+    ssize_t read = 0;
+    uint64_t ts = 0;
+    double_t value = 0.0;
+    ssize_t len = read_file(cl->fp, buf);
+    while (read < len) {
+        ts = read_i64(p + sizeof(uint64_t));
+        value = read_f64(p + sizeof(uint64_t) * 2);
+        read += sizeof(uint64_t) * 2 + sizeof(double_t);
+        p += sizeof(uint64_t) * 2 + sizeof(double_t);
+        log_info("%lu -> %.02f", ts, value);
+    }
 }
