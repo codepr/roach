@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <string.h>
 
-static const size_t INTERVAL = 1 << 6;
+static const size_t BATCH_SIZE = 1 << 6;
 static const size_t BLOCK_SIZE = 1 << 12;
 
 static int partition_init(Partition *p, const char *path, uint64_t base) {
@@ -16,7 +16,7 @@ static int partition_init(Partition *p, const char *path, uint64_t base) {
     if (err < 0)
         return -1;
 
-    err = p_index_init(&p->index, path, base, INTERVAL);
+    err = p_index_init(&p->index, path, base);
     if (err < 0)
         return -1;
 
@@ -31,9 +31,9 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
     vec_new(dump);
 
     size_t count = 0;
-    uint8_t *buf =
-        malloc(sizeof(uint64_t) * 2 +
-               (((sizeof(uint64_t) * 2) + sizeof(double_t)) * INTERVAL * 900));
+    uint8_t *buf = malloc(
+        sizeof(uint64_t) * 2 +
+        (((sizeof(uint64_t) * 2) + sizeof(double_t)) * BATCH_SIZE * 900));
 
     uint8_t *ptr = buf;
     size_t len = 0;
@@ -42,11 +42,11 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
         if (tc->points[i].size == 0)
             continue;
         for (size_t j = 0; j < vec_size(tc->points[i]); ++j) {
-            if (count > 0 && count % INTERVAL == 0) {
+            if (count > 0 && count % BATCH_SIZE == 0) {
                 log_info("Writing batch sized %lu", count);
                 len = ts_record_batch_write(
-                    (const Record **)(dump.data + (count - INTERVAL)), buf,
-                    INTERVAL);
+                    (const Record **)(dump.data + (count - BATCH_SIZE)), buf,
+                    BATCH_SIZE);
                 err = c_log_append_batch(&p->clog, buf, len);
                 if (err < 0)
                     fprintf(stderr, "batch write failed: %s\n",
@@ -66,7 +66,7 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
     // Finish up any remaining record
     size_t rem = 0;
     if (count != 0)
-        rem = count % INTERVAL;
+        rem = count % BATCH_SIZE;
     if (rem != 0) {
         size_t last_len = ts_record_batch_write(
             (const Record **)(dump.data + (count - rem)), buf, rem);

@@ -31,31 +31,31 @@ int main(void) {
     (void)timestamps;
 
     ts_print(&ts);
-    /* log_info("Print log"); */
-    /* c_log_print(&p.clog); */
+    log_info("Print log");
+    c_log_print(&p.clog);
 
-    /* log_info("Find single record at %lu\n", timestamps[3]); */
+    log_info("Find single record at %lu\n", timestamps[3]);
     Record r;
-    /* (void)ts_find_record(&ts, timestamps[3], &r); */
-    /* log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f", r.timestamp, */
-    /*          r.tv.tv_sec, r.tv.tv_nsec, r.value); */
+    (void)ts_find_record(&ts, timestamps[3], &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
-    /* log_info("Find range records at %lu - %lu\n", timestamps[2], */
-    /*          timestamps[88]); */
-    /* Points coll; */
-    /* vec_new(coll); */
-    /* (void)ts_range(&ts, timestamps[2], timestamps[88], &coll); */
-    /* for (size_t i = 0; i < vec_size(coll); i++) { */
-    /*     Record r = vec_at(coll, i); */
-    /*     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp, */
-    /*              r.tv.tv_sec, r.tv.tv_nsec, r.value); */
-    /* } */
+    log_info("Find range records at %lu - %lu\n", timestamps[2],
+             timestamps[88]);
+    Points coll;
+    vec_new(coll);
+    (void)ts_range(&ts, timestamps[2], timestamps[88], &coll);
+    for (size_t i = 0; i < vec_size(coll); i++) {
+        Record r = vec_at(coll, i);
+        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp,
+                 r.tv.tv_sec, r.tv.tv_nsec, r.value);
+    }
 
-    /* vec_destroy(coll); */
+    vec_destroy(coll);
 
     log_info("Attempting a read from disk");
 
-    /* p_index_print(&p.index); */
+    p_index_print(&p.index);
 
     uint8_t buf[512];
     partition_find(&p, buf, timestamps[51]);

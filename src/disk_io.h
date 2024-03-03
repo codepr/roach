@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+extern const size_t MAX_PATH_SIZE;
+
 typedef struct buffer {
     uint8_t *buf;
     size_t size;
@@ -11,7 +13,7 @@ typedef struct buffer {
 
 int make_dir(const char *path);
 
-FILE *open_file(const char *path, const char *ext, uint64_t base);
+FILE *open_file(const char *path, const char *ext, const char *modes);
 
 ssize_t get_file_size(FILE *fp, long offset);
 

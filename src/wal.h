@@ -3,10 +3,11 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 typedef struct wal {
-    int fd;
+    FILE *fp;
     size_t size;
 } Wal;
 

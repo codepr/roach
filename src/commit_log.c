@@ -5,7 +5,9 @@
 #include "timeseries.h"
 
 int c_log_init(Commit_Log *cl, const char *path, uint64_t base) {
-    cl->fp = open_file(path, "log", base);
+    char path_buf[MAX_PATH_SIZE];
+    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20lu", path, base);
+    cl->fp = open_file(path_buf, "log", "w+");
     cl->base_timestamp = base;
     cl->current_timestamp = base;
     cl->size = 0;
@@ -13,7 +15,9 @@ int c_log_init(Commit_Log *cl, const char *path, uint64_t base) {
 }
 
 int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base) {
-    cl->fp = open_file(path, "log", base);
+    char path_buf[MAX_PATH_SIZE];
+    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20lu", path, base);
+    cl->fp = open_file(path_buf, "log", "r");
     cl->base_timestamp = base;
 
     uint64_t record_size = 0;

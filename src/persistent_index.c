@@ -7,27 +7,27 @@
 static const size_t ENTRY_SIZE = sizeof(uint64_t) * 2;
 static const size_t INDEX_SIZE = 1 << 12;
 
-int p_index_init(Persistent_Index *pi, const char *path, uint64_t base,
-                 uint32_t interval) {
-    pi->fp = open_file(path, "index", base);
+int p_index_init(Persistent_Index *pi, const char *path, uint64_t base) {
+    char path_buf[MAX_PATH_SIZE];
+    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20lu", path, base);
+    pi->fp = open_file(path_buf, "index", "w+");
     if (!pi->fp)
         return -1;
     pi->size = 0;
     pi->base_timestamp = base;
-    pi->interval = interval;
     return 0;
 }
 
 int p_index_close(Persistent_Index *pi) { return fclose(pi->fp); }
 
-int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base,
-                      uint32_t interval) {
-    pi->fp = open_file(path, "index", base);
+int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base) {
+    char path_buf[MAX_PATH_SIZE];
+    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20lu", path, base);
+    pi->fp = open_file(path_buf, "index", "r");
     if (!pi->fp)
         return -1;
     pi->size = get_file_size(pi->fp, 0);
     pi->base_timestamp = base;
-    pi->interval = interval;
     return 0;
 }
 

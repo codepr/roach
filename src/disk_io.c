@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static const size_t MAX_PATH_SIZE = 512;
+const size_t MAX_PATH_SIZE = 512;
 
 int make_dir(const char *path) {
     struct stat st = {0};
@@ -16,10 +16,11 @@ int make_dir(const char *path) {
     return 0;
 }
 
-FILE *open_file(const char *path, const char *ext, uint64_t base) {
+FILE *open_file(const char *path, const char *ext, const char *modes) {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/%.20lu.%s", path, base, ext);
-    FILE *fp = fopen(path_buf, "w+");
+    snprintf(path_buf, sizeof(path_buf), "%s.%s", path, ext);
+
+    FILE *fp = fopen(path_buf, modes);
     if (!fp) {
         fprintf(stderr, "Cannot open %s: %s", path_buf, strerror(errno));
         return NULL;
@@ -34,6 +35,7 @@ ssize_t get_file_size(FILE *fp, long offset) {
     }
 
     ssize_t size = ftell(fp);
+
     // reset to offset
     fseek(fp, offset, SEEK_SET);
     return size;
@@ -71,7 +73,7 @@ ssize_t read_file(FILE *fp, uint8_t *buf) {
         return -1;
     }
 
-    size_t size = ftell(fp);
+    ssize_t size = ftell(fp);
 
     /* Set position of stream to the beginning */
     rewind(fp);

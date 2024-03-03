@@ -1,5 +1,6 @@
 #include "timeseries.h"
 #include "binary.h"
+#include "disk_io.h"
 #include "logging.h"
 #include <assert.h>
 #include <dirent.h>
@@ -7,34 +8,7 @@
 #include <string.h>
 
 static const char *BASE_PATH = "logdata";
-static const size_t PATH_BUF_MAXSIZE = 1 << 10;
 static const size_t LINEAR_THRESHOLD = 192;
-
-static ssize_t read_file(int fd, uint8_t *buf) {
-    FILE *fp = fdopen(fd, "r");
-    if (!fp) {
-        perror("fdopen");
-        return -1;
-    }
-
-    /* Get the buffer size */
-    if (fseek(fp, 0, SEEK_END) < 0) {
-        perror("fseek");
-        return -1;
-    }
-
-    size_t size = ftell(fp);
-
-    /* Set position of stream to the beginning */
-    rewind(fp);
-
-    /* Read the file into the buffer */
-    fread(buf, 1, size, fp);
-
-    /* NULL-terminate the buffer */
-    buf[size] = '\0';
-    return size;
-}
 
 static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
                          uint64_t base_ts, int main) {
@@ -95,11 +69,14 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
         return -1;
 
     uint8_t *buf = malloc(tc->wal.size + 1);
-    int n = read_file(tc->wal.fd, buf);
+    /* int n = read_file(tc->wal.fd, buf); */
+    ssize_t n = read_file(tc->wal.fp, buf);
     if (n < 0)
         return -1;
 
-    ts_chunk_init(tc, pathbuf, base_timestamp, main);
+    tc->base_offset = base_timestamp;
+    for (int i = 0; i < TS_CHUNK_SIZE; ++i)
+        vec_new(tc->points[i]);
 
     uint8_t *ptr = buf;
     uint64_t timestamp;
@@ -123,7 +100,7 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
 }
 
 int ts_init(Timeseries *ts) {
-    char pathbuf[PATH_BUF_MAXSIZE];
+    char pathbuf[MAX_PATH_SIZE];
     snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
 
     struct dirent **namelist;
@@ -134,11 +111,12 @@ int ts_init(Timeseries *ts) {
 
     for (int i = 0; i < n; ++i) {
         const char *dot = strrchr(namelist[i]->d_name, '.');
-        if (strncmp(dot, ".log", 4) == 0) {
-            uint64_t base_timestamp = atoll(namelist[i]->d_name + 2);
-            if (namelist[i]->d_name[0] == 'm') {
+        if (strncmp(namelist[i]->d_name, "wal-", 4) == 0 &&
+            strncmp(dot, ".log", 4) == 0) {
+            uint64_t base_timestamp = atoll(namelist[i]->d_name + 6);
+            if (namelist[i]->d_name[4] == 'h') {
                 err = ts_chunk_from_disk(&ts->head, pathbuf, base_timestamp, 1);
-            } else {
+            } else if (namelist[i]->d_name[4] == 't') {
                 err = ts_chunk_from_disk(&ts->prev, pathbuf, base_timestamp, 0);
             }
             ok = err == 0;
@@ -172,7 +150,7 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
         // If the chunk is empty, it also means the base offset is 0, we set
         // it here with the first record inserted
         if (ts->prev.base_offset == 0) {
-            char pathbuf[PATH_BUF_MAXSIZE];
+            char pathbuf[MAX_PATH_SIZE];
             snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
             ts_chunk_init(&ts->prev, pathbuf, sec, 0);
         }
@@ -188,7 +166,7 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     // current chunk and create a new in-memory segment, let's error for now
 
     if (ts->head.base_offset == 0) {
-        char pathbuf[PATH_BUF_MAXSIZE];
+        char pathbuf[MAX_PATH_SIZE];
         snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
         ts_chunk_init(&ts->head, pathbuf, sec, 1);
     }
