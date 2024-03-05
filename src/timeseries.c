@@ -9,6 +9,8 @@
 
 static const char *BASE_PATH = "logdata";
 static const size_t LINEAR_THRESHOLD = 192;
+const size_t TS_DUMP_SIZE = 512; // 4Mb
+/* const size_t TS_DUMP_SIZE = 4294967296; // 4Mb */
 
 static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
                          uint64_t base_ts, int main) {
@@ -21,8 +23,10 @@ static int ts_chunk_init(Timeseries_Chunk *ts_chunk, const char *path,
 }
 
 static void ts_chunk_destroy(Timeseries_Chunk *ts_chunk) {
-    for (int i = 0; i < TS_CHUNK_SIZE; ++i)
+    for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
         vec_destroy(ts_chunk->points[i]);
+        ts_chunk->points[i].size = 0;
+    }
 }
 
 /*
@@ -58,6 +62,7 @@ int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
 Timeseries ts_new(const char *name, uint64_t retention) {
     Timeseries ts;
     ts.retention = retention;
+    ts.last_partition = 0;
     snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
     return ts;
 }
@@ -120,6 +125,11 @@ int ts_init(Timeseries *ts) {
                 err = ts_chunk_from_disk(&ts->prev, pathbuf, base_timestamp, 0);
             }
             ok = err == 0;
+        } else if (namelist[i]->d_name[0] == 'c') {
+            // There is a log partition
+            uint64_t base_timestamp = atoll(namelist[i]->d_name + 3);
+            err = partition_from_disk(&ts->partitions[ts->last_partition++],
+                                      pathbuf, base_timestamp);
         }
 
         free(namelist[i]);
@@ -145,15 +155,46 @@ void ts_destroy(Timeseries *ts) {
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     uint64_t sec = timestamp / (uint64_t)1e9;
     uint64_t nsec = timestamp % (uint64_t)1e9;
+
+    char pathbuf[MAX_PATH_SIZE];
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
+
+    // if the limit is reached we dump the chunks into disk and create 2 new
+    // ones
+    if (wal_size(&ts->head.wal) >= TS_DUMP_SIZE) {
+        uint64_t base = ts->prev.base_offset > 0 ? ts->prev.base_offset
+                                                 : ts->head.base_offset;
+        size_t last_partition =
+            ts->last_partition == 0 ? 0 : ts->last_partition - 1;
+        if (ts->partitions[last_partition].clog.base_timestamp < base) {
+            if (partition_init(&ts->partitions[ts->last_partition], pathbuf,
+                               base) < 0) {
+                return -1;
+            }
+            last_partition = ts->last_partition;
+            ts->last_partition++;
+        }
+
+        if (partition_dump_ts_chunk(&ts->partitions[last_partition],
+                                    &ts->prev) < 0)
+            return -1;
+        if (partition_dump_ts_chunk(&ts->partitions[last_partition],
+                                    &ts->head) < 0)
+            return -1;
+
+        // Delete WAL here
+        wal_delete(&ts->head.wal);
+        wal_delete(&ts->prev.wal);
+        ts_destroy(ts);
+        ts->head.base_offset = 0;
+        ts->prev.base_offset = 0;
+    }
     // Let it crash for now if the timestamp is out of bounds in the ooo
     if (sec < ts->head.base_offset) {
         // If the chunk is empty, it also means the base offset is 0, we set
         // it here with the first record inserted
-        if (ts->prev.base_offset == 0) {
-            char pathbuf[MAX_PATH_SIZE];
-            snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
+        if (ts->prev.base_offset == 0)
             ts_chunk_init(&ts->prev, pathbuf, sec, 0);
-        }
 
         // Persist to disk for disaster recovery
         wal_append_record(&ts->prev.wal, timestamp, value);
@@ -165,11 +206,8 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     // We want to persist here if the timestamp is out of bounds with the
     // current chunk and create a new in-memory segment, let's error for now
 
-    if (ts->head.base_offset == 0) {
-        char pathbuf[MAX_PATH_SIZE];
-        snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
+    if (ts->head.base_offset == 0)
         ts_chunk_init(&ts->head, pathbuf, sec, 1);
-    }
 
     // Persist to disk for disaster recovery
     wal_append_record(&ts->head.wal, timestamp, value);
@@ -195,37 +233,75 @@ static int record_cmp(const Record *r1, const Record *r2) {
 
 int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint64_t sec = timestamp / (uint64_t)1e9;
-    size_t index = 0, idx = 0;
+    uint64_t nsec = timestamp % (uint64_t)1e9;
+    size_t index = 0;
+    ssize_t idx = 0;
     Record target = {.timestamp = timestamp};
-    // First check the current chunk
-    if (ts->head.base_offset <= sec) {
-        if ((index = sec - ts->head.base_offset) > TS_CHUNK_SIZE)
-            return -1;
+    if (ts->head.base_offset > 0) {
+        // First check the current chunk
+        if (ts->head.base_offset <= sec) {
+            if ((index = sec - ts->head.base_offset) > TS_CHUNK_SIZE)
+                return -1;
 
-        if (vec_size(ts->head.points[index]) < LINEAR_THRESHOLD)
-            vec_search_cmp(ts->head.points[index], &target, record_cmp, &idx);
-        else
-            vec_bsearch_cmp(ts->head.points[index], &target, record_cmp, &idx);
-        Record res = vec_at(ts->head.points[index], idx);
-        *r = res;
-        return 0;
+            if (vec_size(ts->head.points[index]) < LINEAR_THRESHOLD)
+                vec_search_cmp(ts->head.points[index], &target, record_cmp,
+                               &idx);
+            else
+                vec_bsearch_cmp(ts->head.points[index], &target, record_cmp,
+                                &idx);
+
+            if (idx < 0)
+                goto seekdisk;
+
+            Record res = vec_at(ts->head.points[index], idx);
+            *r = res;
+            return 0;
+        }
     }
     // Then check the OOO chunk
-    if (ts->prev.base_offset <= sec) {
-        if ((index = sec - ts->prev.base_offset) > TS_CHUNK_SIZE)
-            return -1;
-        if (vec_size(ts->prev.points[index]) < LINEAR_THRESHOLD)
-            vec_search_cmp(ts->prev.points[index], &target, record_cmp, &idx);
-        else
-            vec_bsearch_cmp(ts->prev.points[index], &target, record_cmp, &idx);
-        Record res = vec_at(ts->prev.points[index], idx);
-        *r = res;
-        return 0;
+    if (ts->prev.base_offset > 0) {
+        if (ts->prev.base_offset <= sec) {
+            if ((index = sec - ts->prev.base_offset) > TS_CHUNK_SIZE)
+                return -1;
+            if (vec_size(ts->prev.points[index]) < LINEAR_THRESHOLD)
+                vec_search_cmp(ts->prev.points[index], &target, record_cmp,
+                               &idx);
+            else
+                vec_bsearch_cmp(ts->prev.points[index], &target, record_cmp,
+                                &idx);
+
+            if (idx < 0)
+                goto seekdisk;
+
+            Record res = vec_at(ts->prev.points[index], idx);
+            *r = res;
+            return 0;
+        }
     }
 
-    // TODO look for the record on disk
+seekdisk:
+    // Finally look for the record on disk
+    log_info("Looking in the persistence");
+    uint8_t buf[512];
+    int err = 0;
+    size_t partition_i = 0;
+    for (size_t n = 0; n <= ts->last_partition; ++n) {
+        log_info("%lu == %lu", ts->partitions[n].clog.base_timestamp, sec);
+        log_info("%lu == %lu", ts->partitions[n].clog.base_ns, nsec);
+        if (ts->partitions[n].clog.base_timestamp == sec) {
+            partition_i = ts->partitions[n].clog.base_ns > nsec ? n - 1 : n;
+            break;
+        }
+    }
 
-    return -1;
+    err = partition_find(&ts->partitions[partition_i], buf, timestamp);
+    if (err < 0)
+        return -1;
+
+    // We got a match
+    ts_record_read(r, buf);
+
+    return 0;
 }
 
 static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
@@ -266,10 +342,34 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
         if (sec0 - ts->head.base_offset > TS_CHUNK_SIZE)
             return -1;
         ts_chunk_range(&ts->head, t0, t1, p);
-    } else {
+    } else if (ts->prev.base_offset <= sec0) {
         if (sec0 - ts->prev.base_offset > TS_CHUNK_SIZE)
             return -1;
         ts_chunk_range(&ts->prev, t0, t1, p);
+    } else {
+        // We start looking on the persistence
+        // 1st case, the entire range is on persistence
+        size_t partition_i = ts->last_partition;
+        // TODO malloc
+        uint8_t buf[4096];
+        while (partition_i > 0) {
+            if (ts->partitions[partition_i].clog.base_timestamp <= t0) {
+                int n = 0;
+                if ((n = partition_range(&ts->partitions[partition_i], buf, t0,
+                                         t1)) < 0)
+                    return -1;
+                uint8_t *ptr = &buf[0];
+                size_t record_len = 0;
+                while (n > 0) {
+                    Record r;
+                    record_len = ts_record_read(&r, ptr);
+                    vec_push(*p, r);
+                    ptr += record_len;
+                }
+                return 0;
+            }
+            partition_i--;
+        }
     }
 
     return 0;
@@ -315,6 +415,8 @@ size_t ts_record_read(Record *r, const uint8_t *buf) {
     buf += sizeof(uint64_t);
     // Timestamp u64
     r->timestamp = read_i64(buf);
+    r->tv.tv_sec = r->timestamp / (uint64_t)1e9;
+    r->tv.tv_nsec = r->timestamp % (uint64_t)1e9;
     buf += sizeof(uint64_t);
     // Value
     r->value = read_f64(buf);

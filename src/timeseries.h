@@ -1,6 +1,7 @@
 #ifndef TIMESERIES_H
 #define TIMESERIES_H
 
+#include "partition.h"
 #include "vec.h"
 #include "wal.h"
 #include <math.h>
@@ -9,6 +10,9 @@
 
 #define TS_NAME_MAX_LENGTH 1 << 9
 #define TS_CHUNK_SIZE 900 // 15 min
+#define TS_MAX_PARTITIONS 4
+
+extern const size_t TS_DUMP_SIZE;
 
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
@@ -49,6 +53,8 @@ typedef struct timeseries {
     char name[TS_NAME_MAX_LENGTH];
     Timeseries_Chunk head;
     Timeseries_Chunk prev;
+    Partition partitions[TS_MAX_PARTITIONS];
+    size_t last_partition;
 } Timeseries;
 
 size_t ts_record_timestamp(const uint8_t *buf);

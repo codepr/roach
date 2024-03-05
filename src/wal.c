@@ -11,10 +11,9 @@
 static const char t[2] = {'t', 'h'};
 
 int wal_init(Wal *w, const char *path, uint64_t base_timestamp, int main) {
-    char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/wal-%c-%.20lu", path, t[main],
+    snprintf(w->path, sizeof(w->path), "%s/wal-%c-%.20lu", path, t[main],
              base_timestamp);
-    w->fp = open_file(path_buf, "log", "w+");
+    w->fp = open_file(w->path, "log", "w+");
     if (!w->fp)
         goto errdefer;
 
@@ -25,6 +24,19 @@ int wal_init(Wal *w, const char *path, uint64_t base_timestamp, int main) {
 errdefer:
     fprintf(stderr, "WAL init %s: %s", path, strerror(errno));
     return -1;
+}
+
+int wal_delete(Wal *w) {
+    if (!w->fp)
+        return -1;
+    int err = fclose(w->fp);
+    if (err < 0)
+        return -1;
+    w->size = 0;
+    char tmp[WAL_PATH_SIZE + 5];
+    snprintf(tmp, sizeof(tmp), "%s.log", w->path);
+    printf("Removing %s\n", tmp);
+    return remove(tmp);
 }
 
 int wal_from_disk(Wal *w, const char *path, uint64_t base_timestamp, int main) {
@@ -57,3 +69,5 @@ int wal_append_record(Wal *wal, uint64_t ts, double_t value) {
     wal->size += len;
     return 0;
 }
+
+size_t wal_size(const Wal *wal) { return wal->size; }

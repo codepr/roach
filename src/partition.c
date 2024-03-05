@@ -11,7 +11,7 @@
 static const size_t BATCH_SIZE = 1 << 6;
 static const size_t BLOCK_SIZE = 1 << 12;
 
-static int partition_init(Partition *p, const char *path, uint64_t base) {
+int partition_init(Partition *p, const char *path, uint64_t base) {
     int err = c_log_init(&p->clog, path, base);
     if (err < 0)
         return -1;
@@ -23,22 +23,31 @@ static int partition_init(Partition *p, const char *path, uint64_t base) {
     return 0;
 }
 
-int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
-    int err = partition_init(p, "logdata/tsdata", tc->base_offset);
+int partition_from_disk(Partition *p, const char *path, uint64_t base) {
+    int err = c_log_from_disk(&p->clog, path, base);
     if (err < 0)
         return -1;
+
+    err = p_index_from_disk(&p->index, path, base);
+    if (err < 0)
+        return -1;
+
+    return 0;
+}
+
+int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc) {
+
     VEC(Record *) dump;
     vec_new(dump);
 
     size_t count = 0;
-    uint8_t *buf = malloc(
-        sizeof(uint64_t) * 2 +
-        (((sizeof(uint64_t) * 2) + sizeof(double_t)) * BATCH_SIZE * 900));
+    uint8_t *buf = malloc(TS_DUMP_SIZE * 2);
 
     uint8_t *ptr = buf;
     size_t len = 0;
+    int err = 0;
 
-    for (size_t i = 0; i < 900; ++i) {
+    for (size_t i = 0; i < TS_CHUNK_SIZE; ++i) {
         if (tc->points[i].size == 0)
             continue;
         for (size_t j = 0; j < vec_size(tc->points[i]); ++j) {
@@ -57,6 +66,8 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
                     fprintf(stderr, "index write failed: %s\n",
                             strerror(errno));
                 buf += len;
+                // Hard choices
+                c_log_set_base_ns(&p->clog, tc->points[0].data[0].tv.tv_nsec);
             }
             vec_push(dump, &tc->points[i].data[j]);
             count++;
@@ -85,6 +96,18 @@ int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc) {
     return 0;
 }
 
+static uint64_t end_offset(const Partition *p, const Range *r) {
+    uint64_t end = 0;
+    if (r->end == -1)
+        end = p->clog.size;
+    else if (r->end == r->start)
+        end = sizeof(uint64_t) * 3;
+    else
+        end = r->end - r->start;
+
+    return end;
+}
+
 int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
     Range range;
     int err = p_index_find_offset(&p->index, timestamp, &range);
@@ -95,14 +118,9 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
     uint8_t buf[BLOCK_SIZE];
     uint8_t *ptr = &buf[0];
 
-    uint64_t end = 0;
-    if (range.end == -1)
-        end = p->clog.size;
-    else if (range.end == range.start)
-        end = sizeof(uint64_t) * 3;
-    else
-        end = range.end - range.start;
+    uint64_t end = end_offset(p, &range);
 
+    log_info("Rstart: %lu Rend: %lu", range.start, end);
     ssize_t n = c_log_read_at(&p->clog, &ptr, range.start, end);
     if (n < 0)
         return -1;
@@ -122,4 +140,42 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
     memcpy(dst, ptr, record_len);
 
     return 0;
+}
+
+int partition_range(const Partition *p, uint8_t *dst, uint64_t t0,
+                    uint64_t t1) {
+    Range r0, r1;
+    int err = p_index_find_offset(&p->index, t0, &r0);
+    if (err < 0)
+        return -1;
+
+    err = p_index_find_offset(&p->index, t1, &r1);
+    if (err < 0)
+        return -1;
+
+    /* uint64_t end0 = end_offset(p, &r0); */
+    uint64_t end1 = end_offset(p, &r1);
+
+    // TODO dynamic alloc this buffer
+    uint8_t buf[BLOCK_SIZE];
+    uint8_t *ptr = &buf[0];
+
+    ssize_t n = c_log_read_at(&p->clog, &ptr, r0.start, end1);
+    if (n < 0)
+        return -1;
+
+    size_t record_len = 0;
+    uint64_t ts = 0;
+    while (n > 0) {
+        record_len = read_i64(ptr);
+        ts = read_i64(ptr + sizeof(uint64_t));
+        if (ts == t0)
+            break;
+        ptr += record_len;
+        n -= record_len;
+    }
+
+    memcpy(dst, ptr, n);
+
+    return n;
 }

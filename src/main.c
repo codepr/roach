@@ -11,10 +11,9 @@
 
 int main(void) {
     uint64_t timestamps[POINTS_NR];
-    Partition p;
+
     Timeseries ts = ts_new("tsdata", 0);
     int ok = ts_init(&ts);
-    log_info("ok = %i\n", ok);
     if (!ok) {
         log_info("Init");
         struct timespec tv;
@@ -23,58 +22,63 @@ int main(void) {
             uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec;
             timestamps[i] = timestamp;
             ts_set_record(&ts, timestamp, (double_t)i);
-            /* usleep(10000); */
+            usleep(15000);
         }
-        log_info("Dumping");
-        partition_dump_timeseries_chunk(&p, &ts.head);
     }
     (void)timestamps;
 
     ts_print(&ts);
     log_info("Print log");
-    c_log_print(&p.clog);
+    for (size_t i = 0; i <= ts.last_partition; ++i)
+        c_log_print(&ts.partitions[i].clog);
 
-    log_info("Find single record at %lu\n", timestamps[3]);
+    log_info("Find single record at %lu", timestamps[2]);
     Record r;
-    (void)ts_find_record(&ts, timestamps[3], &r);
-    log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f", r.timestamp,
+    (void)ts_find_record(&ts, timestamps[2], &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
-    log_info("Find range records at %lu - %lu\n", timestamps[2],
-             timestamps[88]);
-    Points coll;
-    vec_new(coll);
-    (void)ts_range(&ts, timestamps[2], timestamps[88], &coll);
-    for (size_t i = 0; i < vec_size(coll); i++) {
-        Record r = vec_at(coll, i);
-        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp,
-                 r.tv.tv_sec, r.tv.tv_nsec, r.value);
-    }
+    /* log_info("Find range records at %lu - %lu\n", timestamps[2], */
+    /*          timestamps[88]); */
+    /* Points coll; */
+    /* vec_new(coll); */
+    /* (void)ts_range(&ts, timestamps[2], timestamps[88], &coll); */
+    /* for (size_t i = 0; i < vec_size(coll); i++) { */
+    /*     Record r = vec_at(coll, i); */
+    /*     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp, */
+    /*              r.tv.tv_sec, r.tv.tv_nsec, r.value); */
+    /* } */
 
-    vec_destroy(coll);
+    /* vec_destroy(coll); */
 
-    log_info("Attempting a read from disk");
+    /* log_info("Attempting a read from disk"); */
 
-    p_index_print(&p.index);
+    /* p_index_print(&p.index); */
 
-    uint8_t buf[512];
-    partition_find(&p, buf, timestamps[51]);
-    ts_record_read(&r, buf);
-    log_info("%lu %.20lf", r.timestamp, r.value);
+    /* uint8_t buf[512]; */
+    /* partition_find(&p, buf, timestamps[51]); */
+    /* ts_record_read(&r, buf); */
+    /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
-    partition_find(&p, buf, timestamps[0]);
-    ts_record_read(&r, buf);
-    log_info("%lu %.20lf", r.timestamp, r.value);
+    /* partition_find(&p, buf, timestamps[0]); */
+    /* ts_record_read(&r, buf); */
+    /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
-    partition_find(&p, buf, timestamps[23]);
-    ts_record_read(&r, buf);
-    log_info("%lu %.20lf", r.timestamp, r.value);
+    /* partition_find(&p, buf, timestamps[23]); */
+    /* ts_record_read(&r, buf); */
+    /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
-    partition_find(&p, buf, timestamps[89]);
-    ts_record_read(&r, buf);
-    log_info("%lu %.20lf", r.timestamp, r.value);
+    /* partition_find(&p, buf, timestamps[89]); */
+    /* ts_record_read(&r, buf); */
+    /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
-    c_log_print(&p.clog);
+    /* c_log_print(&p.clog); */
+
+    log_info("Looking for record: %lu", timestamps[88]);
+    ts_find_record(&ts, timestamps[88], &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
+
     ts_destroy(&ts);
 
     return 0;

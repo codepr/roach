@@ -11,8 +11,14 @@ typedef struct partition {
     Persistent_Index index;
 } Partition;
 
-int partition_dump_timeseries_chunk(Partition *p, const Timeseries_Chunk *tc);
+int partition_init(Partition *p, const char *path, uint64_t base);
+
+int partition_from_disk(Partition *p, const char *path, uint64_t base);
+
+int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc);
 
 int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp);
+
+int partition_range(const Partition *p, uint8_t *dst, uint64_t t0, uint64_t t1);
 
 #endif
