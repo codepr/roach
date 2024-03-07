@@ -55,7 +55,7 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
         return 0;
     }
 
-    uint64_t base_ts = pi->base_timestamp * 1e9;
+    uint64_t base_ts = pi->base_timestamp * (uint64_t)1e9;
 
     // 1st simple approach, read the entire file and look for the offset
     // linearly
@@ -77,12 +77,12 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
             break;
         // Remember the just read offset
         prev_offset = offset;
+        // Forward the pointer and subtract the total length
+        ptr += ENTRY_SIZE;
+        len -= ENTRY_SIZE;
         // Found exact match
         if (entry_ts == ts)
             break;
-        // Forward the pointer and subtract the total length
-        ptr += sizeof(uint64_t) * 2;
-        len -= sizeof(uint64_t) * 2;
     }
 
     // -1 as end only in the case where we read the entire index and we didn't

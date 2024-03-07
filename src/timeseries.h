@@ -13,6 +13,7 @@
 #define TS_MAX_PARTITIONS 4
 
 extern const size_t TS_DUMP_SIZE;
+extern const size_t TS_BATCH_OFFSET;
 
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
@@ -38,6 +39,8 @@ typedef VEC(Record) Points;
 typedef struct timeseries_chunk {
     Wal wal;
     uint64_t base_offset;
+    uint64_t start_ts;
+    size_t max_index;
     Points points[TS_CHUNK_SIZE];
 } Timeseries_Chunk;
 

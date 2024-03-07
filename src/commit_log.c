@@ -20,7 +20,7 @@ void c_log_set_base_ns(Commit_Log *cl, uint64_t ns) { cl->base_ns = ns; }
 int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base) {
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/c-%.20lu", path, base);
-    log_info("%s.log", path_buf);
+    
     cl->fp = open_file(path_buf, "log", "r");
     cl->base_timestamp = base;
 
@@ -32,7 +32,6 @@ int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base) {
     size_t size = buffer.size;
     uint8_t *buf = buffer.buf;
 
-    log_info("size %lu", size);
     while (size > 0) {
         record_size = read_i64(buf);
         size -= record_size;
@@ -57,6 +56,7 @@ int c_log_append_data(Commit_Log *cl, const uint8_t *data, size_t len) {
         perror("write_at");
         return -1;
     }
+
     cl->size += bytes;
     cl->current_timestamp = ts_record_timestamp(data);
 
@@ -78,6 +78,7 @@ int c_log_append_batch(Commit_Log *cl, const uint8_t *batch, size_t len) {
     }
 
     cl->size += len;
+
     return 0;
 }
 

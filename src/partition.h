@@ -9,6 +9,8 @@ typedef struct timeseries_chunk Timeseries_Chunk;
 typedef struct partition {
     Commit_Log clog;
     Persistent_Index index;
+    uint64_t start_ts;
+    uint64_t end_ts;
 } Partition;
 
 int partition_init(Partition *p, const char *path, uint64_t base);

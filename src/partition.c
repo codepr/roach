@@ -20,6 +20,9 @@ int partition_init(Partition *p, const char *path, uint64_t base) {
     if (err < 0)
         return -1;
 
+    p->start_ts = 0;
+    p->end_ts = 0;
+
     return 0;
 }
 
@@ -31,6 +34,9 @@ int partition_from_disk(Partition *p, const char *path, uint64_t base) {
     err = p_index_from_disk(&p->index, path, base);
     if (err < 0)
         return -1;
+
+    p->start_ts = p->clog.base_timestamp * (uint64_t)1e9 + p->clog.base_ns;
+    p->end_ts = p->clog.current_timestamp;
 
     return 0;
 }
@@ -44,7 +50,7 @@ int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc) {
     uint8_t *buf = malloc(TS_DUMP_SIZE * 2);
 
     uint8_t *ptr = buf;
-    size_t len = 0;
+    size_t len = p->clog.size;
     int err = 0;
 
     for (size_t i = 0; i < TS_CHUNK_SIZE; ++i) {
@@ -52,22 +58,23 @@ int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc) {
             continue;
         for (size_t j = 0; j < vec_size(tc->points[i]); ++j) {
             if (count > 0 && count % BATCH_SIZE == 0) {
-                log_info("Writing batch sized %lu", count);
-                len = ts_record_batch_write(
-                    (const Record **)(dump.data + (count - BATCH_SIZE)), buf,
-                    BATCH_SIZE);
+                // Poor man slice
+                const Record **slice =
+                    (const Record **)(dump.data + (count - BATCH_SIZE));
+                len = ts_record_batch_write(slice, buf, BATCH_SIZE);
                 err = c_log_append_batch(&p->clog, buf, len);
                 if (err < 0)
                     fprintf(stderr, "batch write failed: %s\n",
                             strerror(errno));
                 err = p_index_append_offset(&p->index, ts_record_timestamp(buf),
-                                            len - sizeof(uint64_t) * 3);
+                                            len - TS_BATCH_OFFSET);
                 if (err < 0)
                     fprintf(stderr, "index write failed: %s\n",
                             strerror(errno));
                 buf += len;
                 // Hard choices
-                c_log_set_base_ns(&p->clog, tc->points[0].data[0].tv.tv_nsec);
+                uint64_t base_ns = tc->start_ts % (uint64_t)1e9;
+                c_log_set_base_ns(&p->clog, base_ns);
             }
             vec_push(dump, &tc->points[i].data[j]);
             count++;
@@ -79,16 +86,21 @@ int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc) {
     if (count != 0)
         rem = count % BATCH_SIZE;
     if (rem != 0) {
-        size_t last_len = ts_record_batch_write(
-            (const Record **)(dump.data + (count - rem)), buf, rem);
+        // Poor man slice
+        const Record **slice = (const Record **)(dump.data + (count - rem));
+        size_t last_len = ts_record_batch_write(slice, buf, rem);
         err = c_log_append_batch(&p->clog, buf, last_len);
         if (err < 0)
             fprintf(stderr, "batch write failed: %s\n", strerror(errno));
         err = p_index_append_offset(&p->index, ts_record_timestamp(buf),
-                                    len + last_len - sizeof(uint64_t) * 3);
+                                    len + last_len - TS_BATCH_OFFSET);
         if (err < 0)
             fprintf(stderr, "index write failed: %s\n", strerror(errno));
     }
+
+    // Update timestamps
+    p->start_ts = p->start_ts != 0 ? p->start_ts : tc->base_offset;
+    p->end_ts = vec_size(dump) == 0 ? 0 : vec_last(dump)->timestamp;
 
     free(ptr);
     vec_destroy(dump);
@@ -103,7 +115,7 @@ static uint64_t end_offset(const Partition *p, const Range *r) {
     else if (r->end == r->start)
         end = sizeof(uint64_t) * 3;
     else
-        end = r->end - r->start;
+        end = r->end;
 
     return end;
 }
@@ -120,7 +132,6 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
 
     uint64_t end = end_offset(p, &range);
 
-    log_info("Rstart: %lu Rend: %lu", range.start, end);
     ssize_t n = c_log_read_at(&p->clog, &ptr, range.start, end);
     if (n < 0)
         return -1;
@@ -153,7 +164,6 @@ int partition_range(const Partition *p, uint8_t *dst, uint64_t t0,
     if (err < 0)
         return -1;
 
-    /* uint64_t end0 = end_offset(p, &r0); */
     uint64_t end1 = end_offset(p, &r1);
 
     // TODO dynamic alloc this buffer
@@ -164,18 +174,22 @@ int partition_range(const Partition *p, uint8_t *dst, uint64_t t0,
     if (n < 0)
         return -1;
 
-    size_t record_len = 0;
+    size_t record_len = 0, base_size = n;
+    size_t start = n;
     uint64_t ts = 0;
+
     while (n > 0) {
         record_len = read_i64(ptr);
         ts = read_i64(ptr + sizeof(uint64_t));
         if (ts == t0)
-            break;
+            start = n;
         ptr += record_len;
         n -= record_len;
+        if (ts == t1)
+            break;
     }
 
-    memcpy(dst, ptr, n);
+    memcpy(dst, buf + (base_size - start), start - n);
 
-    return n;
+    return start - n;
 }
