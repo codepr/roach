@@ -75,6 +75,10 @@ Timeseries ts_new(const char *name, uint64_t retention) {
     ts.retention = retention;
     ts.last_partition = 0;
     snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
+    char pathbuf[MAX_PATH_SIZE];
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts.name);
+    if (make_dir(pathbuf) < 0)
+        perror("make dir");
     return ts;
 }
 
@@ -164,7 +168,20 @@ void ts_destroy(Timeseries *ts) {
     ts_chunk_destroy(&ts->prev);
 }
 
+/*
+ * Set a record in a timeseries.
+ *
+ * This function sets a record with the specified timestamp and value in the
+ * given timeseries. The function handles the storage of records in memory and
+ * on disk to ensure data integrity and efficient usage of resources.
+ *
+ * @param ts A pointer to the Timeseries structure representing the timeseries.
+ * @param timestamp The timestamp of the record to be set, in nanoseconds.
+ * @param value The value of the record to be set.
+ * @return 0 on success, -1 on failure.
+ */
 int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
+    // Extract seconds and nanoseconds from timestamp
     uint64_t sec = timestamp / (uint64_t)1e9;
     uint64_t nsec = timestamp % (uint64_t)1e9;
 
@@ -188,6 +205,7 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
             ts->last_partition++;
         }
 
+        // Dump chunks into disk and create new ones
         if (partition_dump_ts_chunk(&ts->partitions[last_partition],
                                     &ts->prev) < 0)
             return -1;
@@ -264,6 +282,25 @@ static int ts_search_index(const Timeseries_Chunk *tc, uint64_t sec,
     return 0;
 }
 
+/*
+ * Finds a record in a timeseries data structure.
+ *
+ * This function searches for a record with the specified timestamp in the
+ * given timeseries data structure. It first checks the in-memory chunks
+ * (head and previous) and then looks for the record on disk if not found
+ * in memory.
+ *
+ * @param ts A pointer to the Timeseries structure representing the timeseries.
+ * @param timestamp The timestamp of the record to be found, specified in
+ * nanoseconds since the Unix epoch.
+ * @param r A pointer to a Record structure where the found record will be
+ * stored.
+ * @return 0 if the record is found and successfully stored in 'r', -1 if an
+ * error occurs, or a negative value indicating the result of the search:
+ *         - 1 if the record is found in memory.
+ *         - 0 if the record is not found in memory but found on disk.
+ *         - Negative value if an error occurs during the search.
+ */
 int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint64_t sec = timestamp / (uint64_t)1e9;
     Record target = {.timestamp = timestamp};
