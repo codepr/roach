@@ -10,7 +10,7 @@
 
 #define TS_NAME_MAX_LENGTH 1 << 9
 #define TS_CHUNK_SIZE 900 // 15 min
-#define TS_MAX_PARTITIONS 4
+#define TS_MAX_PARTITIONS 16
 
 extern const size_t TS_DUMP_SIZE;
 extern const size_t TS_BATCH_OFFSET;

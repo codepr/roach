@@ -32,6 +32,9 @@ static void ts_chunk_destroy(Timeseries_Chunk *tc) {
         vec_destroy(tc->points[i]);
         tc->points[i].size = 0;
     }
+    tc->base_offset = 0;
+    tc->start_ts = 0;
+    tc->max_index = 0;
 }
 
 /*
@@ -82,6 +85,8 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
         return -1;
 
     uint8_t *buf = malloc(tc->wal.size + 1);
+    if (!buf)
+        return -1;
     ssize_t n = read_file(tc->wal.fp, buf);
     if (n < 0)
         return -1;
@@ -190,13 +195,8 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
                                     &ts->head) < 0)
             return -1;
 
-        // Delete WAL here
-        wal_delete(&ts->head.wal);
-        wal_delete(&ts->prev.wal);
-        ts_destroy(ts);
         // Reset clean both head and prev in-memory chunks
-        ts->head.base_offset = 0;
-        ts->prev.base_offset = 0;
+        ts_destroy(ts);
     }
     // Let it crash for now if the timestamp is out of bounds in the ooo
     if (sec < ts->head.base_offset) {
@@ -266,7 +266,6 @@ static int ts_search_index(const Timeseries_Chunk *tc, uint64_t sec,
 
 int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint64_t sec = timestamp / (uint64_t)1e9;
-    uint64_t nsec = timestamp % (uint64_t)1e9;
     Record target = {.timestamp = timestamp};
     int err = 0;
     if (ts->head.base_offset > 0) {
@@ -286,10 +285,15 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint8_t buf[RECORD_BINARY_SIZE];
     size_t partition_i = 0;
     for (size_t n = 0; n <= ts->last_partition; ++n) {
-        if (ts->partitions[n].clog.base_timestamp == sec) {
-            partition_i = ts->partitions[n].clog.base_ns > nsec ? n - 1 : n;
-            break;
+        if (ts->partitions[n].clog.base_timestamp > 0 &&
+            ts->partitions[n].clog.base_timestamp <= sec) {
+            uint64_t curr_ts =
+                ts->partitions[n].clog.base_timestamp * (uint64_t)1e9 +
+                ts->partitions[n].clog.base_ns;
+            partition_i = curr_ts > timestamp ? n - 1 : n;
         }
+        if (ts->partitions[n].clog.base_timestamp > sec)
+            break;
     }
 
     err = partition_find(&ts->partitions[partition_i], buf, timestamp);
@@ -310,24 +314,29 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
     // Find the low
     low = sec0 - tc->base_offset;
     Record target = {.timestamp = t0};
+
     if (vec_size(tc->points[low]) < LINEAR_THRESHOLD)
         vec_search_cmp(tc->points[low], &target, record_cmp, &idx_low);
     else
         vec_bsearch_cmp(tc->points[low], &target, record_cmp, &idx_low);
+
     // Find the high
     // TODO let it crash on edge cases for now
     high = sec1 - tc->base_offset;
     target.timestamp = t1;
+
     if (vec_size(tc->points[high]) < LINEAR_THRESHOLD)
         vec_search_cmp(tc->points[high], &target, record_cmp, &idx_high);
     else
         vec_bsearch_cmp(tc->points[high], &target, record_cmp, &idx_high);
+
     // Collect the records
     for (size_t i = low; i < high + 1; ++i) {
         size_t end = i == high ? idx_high : vec_size(tc->points[i]);
         for (size_t j = idx_low; j < end + 1; ++j) {
             Record r = vec_at(tc->points[i], j);
-            vec_push(*p, r);
+            if (r.is_set == 1)
+                vec_push(*p, r);
         }
         idx_low = 0;
     }
@@ -354,10 +363,20 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
         uint8_t buf[4096];
         uint8_t *ptr = &buf[0];
         int complete = 0;
-        while (partition_i < ts->last_partition) {
-            const Partition *curr_p = &ts->partitions[partition_i];
+        const Partition *curr_p = &ts->partitions[0];
 
-            if (curr_p->start_ts <= t0) {
+        // Let's find out the starting partition
+        while (partition_i < ts->last_partition) {
+            if (curr_p->end_ts >= t0)
+                break;
+            partition_i++;
+        }
+
+        curr_p = &ts->partitions[partition_i];
+
+        if (curr_p->start_ts <= t0) {
+            while (partition_i < ts->last_partition) {
+                curr_p = &ts->partitions[partition_i];
                 int n = 0;
                 if (curr_p->end_ts >= t1) {
                     if ((n = partition_range(curr_p, ptr, t0, t1)) < 0)
@@ -376,6 +395,10 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
 
                     break;
                 } else {
+                    if (curr_p->end_ts < t0) {
+                        partition_i++;
+                        continue;
+                    }
                     if ((n = partition_range(curr_p, ptr, t0, curr_p->end_ts)) <
                         0)
                         return -1;
@@ -388,9 +411,9 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
                         n -= record_len;
                     }
                     t0 = curr_p->end_ts;
+                    partition_i++;
                 }
             }
-            partition_i++;
         }
 
         if (complete)

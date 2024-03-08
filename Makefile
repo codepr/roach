@@ -6,4 +6,4 @@ roach: src/*.c
 	$(CC) $(CFLAGS) -o roach src/*.c
 
 clean:
-	rm -f roach logdata/tsdata/*.log logdata/tsdata/*.index
+	rm -f roach logdata/tsdata/*.log logdata/tsdata/*.index logdata/tsdata/timestamps.ts
