@@ -412,7 +412,7 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     if (ts->partitions[0].start_ts == 0)
         return -1;
 
-    // Finally look for the record on disk
+    // Look for the record on disk
     uint8_t buf[RECORD_BINARY_SIZE];
     ssize_t partition_i = 0;
     for (size_t n = 0; n <= ts->partition_nr; ++n) {
@@ -431,6 +431,7 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     if (partition_i < 0)
         return -1;
 
+    // Fetch single record from the partition
     err = partition_find(&ts->partitions[partition_i], buf, timestamp);
     if (err < 0)
         return -1;
@@ -467,7 +468,9 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
 
     // Collect the records
     for (size_t i = low; i < high + 1; ++i) {
+
         size_t end = i == high ? idx_high : vec_size(tc->points[i]);
+
         for (size_t j = idx_low; j < end + 1; ++j) {
             Record r = vec_at(tc->points[i], j);
             if (r.is_set == 1)
@@ -477,90 +480,80 @@ static void ts_chunk_range(const Timeseries_Chunk *tc, uint64_t t0, uint64_t t1,
     }
 }
 
-int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
-    uint64_t sec0 = t0 / (uint64_t)1e9;
-    // First check the current chunk
+// Helper function to fetch records from a partition within a given time range
+static int fetch_records_from_partition(const Partition *partition,
+                                        uint64_t start, uint64_t end,
+                                        Points *points) {
+    // TODO malloc
+    uint8_t buf[4096];
+    uint8_t *ptr = &buf[0];
+    size_t record_len = 0;
+    int n = partition_range(partition, ptr, start, end);
+    if (n < 0)
+        return -1;
+
+    while (n > 0) {
+        Record record;
+        record_len = ts_record_read(&record, ptr);
+        vec_push(*points, record);
+        ptr += record_len;
+        n -= record_len;
+        start = record.timestamp;
+    }
+    return 0;
+}
+
+int ts_range(const Timeseries *ts, uint64_t start, uint64_t end, Points *p) {
+    uint64_t sec0 = start / (uint64_t)1e9;
+    // Check if the range falls in the current chunk
     if (ts->head.base_offset > 0 && ts->head.base_offset <= sec0 &&
-        ts->head.start_ts <= t0) {
+        ts->head.start_ts <= start) {
         if (sec0 - ts->head.base_offset > TS_CHUNK_SIZE)
             return -1;
-        ts_chunk_range(&ts->head, t0, t1, p);
+        ts_chunk_range(&ts->head, start, end, p);
     } else if (ts->prev.base_offset > 0 && ts->prev.base_offset <= sec0 &&
-               ts->prev.start_ts <= t1) {
+               ts->prev.start_ts <= end) {
         if (sec0 - ts->prev.base_offset > TS_CHUNK_SIZE)
             return -1;
-        ts_chunk_range(&ts->prev, t0, t1, p);
+        ts_chunk_range(&ts->prev, start, end, p);
     } else {
-        // We start looking on the persistence
-        // 1st case, the entire range is on persistence
-        size_t partition_i = 0, record_len = 0;
-        // TODO malloc
-        uint8_t buf[4096];
-        uint8_t *ptr = &buf[0];
-        int complete = 0;
-        const Partition *curr_p = &ts->partitions[0];
+        // Search in the persistence
+        size_t partition_i = 0;
+        const Partition *curr_p = NULL;
 
-        // Let's find out the starting partition
-        while (partition_i < ts->partition_nr) {
-            if (curr_p->end_ts >= t0)
-                break;
+        // Find the starting partition
+        while (partition_i < ts->partition_nr &&
+               ts->partitions[partition_i].end_ts < start)
             partition_i++;
-        }
 
-        curr_p = &ts->partitions[partition_i];
+        // Fetch records from partitions within the time range
+        while (partition_i < ts->partition_nr &&
+               ts->partitions[partition_i].start_ts <= end) {
+            curr_p = &ts->partitions[partition_i];
 
-        if (curr_p->start_ts <= t0) {
-            while (partition_i < ts->partition_nr) {
-                curr_p = &ts->partitions[partition_i];
-                int n = 0;
-                if (curr_p->end_ts >= t1) {
-                    if ((n = partition_range(curr_p, ptr, t0, t1)) < 0)
-                        return -1;
-
-                    while (n > 0) {
-                        Record r;
-                        record_len = ts_record_read(&r, ptr);
-                        vec_push(*p, r);
-                        ptr += record_len;
-                        n -= record_len;
-                        t0 = r.timestamp;
-                    }
-
-                    complete = 1;
-
-                    break;
-                } else {
-                    if (curr_p->end_ts < t0) {
-                        partition_i++;
-                        continue;
-                    }
-                    if ((n = partition_range(curr_p, ptr, t0, curr_p->end_ts)) <
-                        0)
-                        return -1;
-
-                    while (n > 0) {
-                        Record r;
-                        record_len = ts_record_read(&r, ptr);
-                        vec_push(*p, r);
-                        ptr += record_len;
-                        n -= record_len;
-                    }
-                    t0 = curr_p->end_ts;
-                    partition_i++;
-                }
+            // Fetch records from the current partition
+            if (curr_p->end_ts >= end) {
+                if (fetch_records_from_partition(curr_p, start, end, p) < 0)
+                    return -1;
+                return 0;
+            } else {
+                if (fetch_records_from_partition(curr_p, start, curr_p->end_ts,
+                                                 p) < 0)
+                    return -1;
+                start = curr_p->end_ts;
+                partition_i++;
             }
         }
 
-        if (complete)
-            return 0;
-
+        // Fetch records from the previous chunk if it exists
         if (ts->prev.base_offset != 0) {
-            ts_chunk_range(&ts->prev, t0, t1, p);
-            t0 = vec_last(ts->prev.points[ts->prev.max_index]).timestamp;
+            ts_chunk_range(&ts->prev, start, end, p);
+            start = vec_last(ts->prev.points[ts->prev.max_index]).timestamp;
         }
 
+        // Fetch records from the current chunk if it exists
         if (ts->head.base_offset != 0) {
-            ts_chunk_range(&ts->head, ts->head.start_ts, t1, p);
+            ts_chunk_range(&ts->head, ts->head.start_ts, end, p);
         }
     }
 

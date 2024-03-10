@@ -68,7 +68,7 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
         return -1;
     }
 
-    uint8_t *ptr = buf;
+    uint8_t *bufptr = buf;
     int err = 0;
 
     for (size_t i = 0; i < TS_CHUNK_SIZE; ++i) {
@@ -82,13 +82,13 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
             if (++batch_size == BATCH_SIZE) {
                 // Poor man slice
                 size_t len = ts_record_batch_write(
-                    (records.data + (total_records - BATCH_SIZE)), buf,
+                    (records.data + (total_records - BATCH_SIZE)), bufptr,
                     BATCH_SIZE);
-                err = commit_records_to_log(p, buf, len);
+                err = commit_records_to_log(p, bufptr, len);
                 if (err < 0)
                     fprintf(stderr, "batch write failed: %s\n",
                             strerror(errno));
-                buf += len;
+                bufptr += len;
                 batch_size = 0;
             }
         }
@@ -98,9 +98,9 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
     size_t remaining_records = total_records % BATCH_SIZE;
     if (remaining_records != 0) {
         size_t len = ts_record_batch_write(
-            (records.data + (total_records - remaining_records)), buf,
+            (records.data + (total_records - remaining_records)), bufptr,
             remaining_records);
-        err = commit_records_to_log(p, buf, len);
+        err = commit_records_to_log(p, bufptr, len);
         if (err < 0)
             fprintf(stderr,
                     "Error writing remaining records to commit log: %s\n",
@@ -117,7 +117,7 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
     p->start_ts = p->start_ts != 0 ? p->start_ts : tc->base_offset;
     p->end_ts = vec_size(records) == 0 ? 0 : vec_last(records)->timestamp;
 
-    free(ptr);
+    free(buf);
     vec_destroy(records);
 
     return 0;

@@ -36,25 +36,34 @@ At the current stage, no server attached, just a tiny library with some crude AP
 #include "timeseries.h"
 
 int main() {
-    // Initialize the database, retention is not implemented yet
-    // ts_new takes care of creating the metric
-    Timeseries ts = ts_create("data", 0);
+    // Initialize the database
+    Timeseries_DB *db = tsdb_init("testdb");
+    if (!db)
+        abort();
+
+    // Create a timeseries, retention is not implemented yet
+    Timeseries *ts = ts_create(db, "temperatures", 0);
+    if (!ts)
+        abort();
 
     // Insert records into the timeseries
-    ts_set_record(&ts, 1609459200000000000, 25.5);
-    ts_set_record(&ts, 1609459201000000000, 26.0);
+    ts_set_record(&ts, 1710033421702081792, 25.5);
+    ts_set_record(&ts, 1710033422047657984, 26.0);
 
     // Find a record by timestamp
     Record r;
-    int result = ts_find_record(&ts, 1609459201000000000, &r);
+    int result = ts_find_record(&ts, 1710033422047657984, &r);
     if (result == 0) {
         printf("Record found: timestamp=%" PRIu64 ", value=%.2f\n", r.timestamp, r.value);
     } else {
         printf("Record not found.\n");
     }
 
-    // Close the database
+    // Release the timeseries
     ts_destroy(&ts);
+
+    // Close the database
+    tsdb_close(db);
 
     return 0;
 }
