@@ -129,6 +129,20 @@ static void ts_chunk_destroy(Timeseries_Chunk *tc) {
     tc->max_index = 0;
 }
 
+static int ts_chunk_record_fit(const Timeseries_Chunk *tc, uint64_t sec) {
+    // Relative offset inside the 2 arrays
+    size_t index = sec - tc->base_offset;
+
+    // Index outside of the head chunk range
+    // 1. Flush the tail chunk to persistence
+    // 2. Create a new head chunk set on the next 15 min
+    // 3. Make the current head chunk the new tail chunk
+    if (index > TS_CHUNK_SIZE - 1)
+        return -1;
+
+    return 0;
+}
+
 /*
  * Set a record in the chunk at a relative index based on the first timestamp
  * stored e.g.
@@ -138,14 +152,18 @@ static void ts_chunk_destroy(Timeseries_Chunk *tc) {
  * Index 6
  *
  * The information stored is initially formed by a timestamp and a long double
- * value
+ * value.
+ *
+ * Remarks
+ *
+ * - This function assumes the record will fit in the chunk, by previously
+ *   checking it with `ts_chunk_record_fit(2)`
+ *
  */
 static int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec,
                                uint64_t nsec, double_t value) {
     // Relative offset inside the 2 arrays
     size_t index = sec - tc->base_offset;
-    assert(index < TS_CHUNK_SIZE);
-
     // Append to the last record in this timestamp bucket
     Record point = {
         .value = value,
@@ -318,7 +336,9 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
         // Persist to disk for disaster recovery
         wal_append_record(&ts->prev.wal, timestamp, value);
 
-        return ts_chunk_set_record(&ts->prev, sec, nsec, value);
+        // If we successfully insert the record, we can return
+        if (ts_chunk_record_fit(&ts->prev, sec) == 0)
+            return ts_chunk_set_record(&ts->prev, sec, nsec, value);
     }
 
     // TODO
@@ -330,6 +350,21 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
 
     // Persist to disk for disaster recovery
     wal_append_record(&ts->head.wal, timestamp, value);
+    // Insert it into the head chunk
+    if (ts_chunk_record_fit(&ts->head, sec) < 0) {
+        // Flush the prev chunk to persistence
+        if (partition_flush_chunk(&ts->partitions[ts->partition_nr],
+                                  &ts->prev) < 0)
+            return -1;
+        // Clean up the prev chunk and delete it's WAL
+        ts_chunk_destroy(&ts->prev);
+        wal_delete(&ts->prev.wal);
+        // Set the current head as new prev
+        ts->prev = ts->head;
+        // Reset the current head as new head
+        ts_chunk_destroy(&ts->head);
+        wal_delete(&ts->head.wal);
+    }
     return ts_chunk_set_record(&ts->head, sec, nsec, value);
 }
 

@@ -126,7 +126,7 @@ int main(void) {
     ts_range(ts, timestamps[1], timestamps[41], &coll);
     for (size_t i = 0; i < vec_size(coll); i++) {
         Record r = vec_at(coll, i);
-        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp,
+        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
                  r.tv.tv_sec, r.tv.tv_nsec, r.value);
     }
 
@@ -138,9 +138,25 @@ int main(void) {
     ts_range(ts, timestamps[1], timestamps[89], &coll);
     for (size_t i = 0; i < vec_size(coll); i++) {
         Record r = vec_at(coll, i);
-        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp,
+        log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
                  r.tv.tv_sec, r.tv.tv_nsec, r.value);
     }
+
+    log_info("[3] Add an out of bounds timestamp");
+    ts_set_record(ts, timestamps[89] + 5e9, 181.1);
+    for (size_t i = 0; i <= ts->partition_nr; ++i)
+        c_log_print(&ts->partitions[i].clog);
+    (void)ts_find_record(ts, timestamps[89] + 5e9, &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
+
+    log_info("[4] Add a prev range timestamp");
+    ts_set_record(ts, timestamps[89] + 5e7, 141.231);
+    for (size_t i = 0; i <= ts->partition_nr; ++i)
+        c_log_print(&ts->partitions[i].clog);
+    (void)ts_find_record(ts, timestamps[89] + 5e7, &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
     vec_destroy(coll);
     ts_destroy(ts);
