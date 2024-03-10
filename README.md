@@ -89,7 +89,7 @@ int main() {
         abort();
 
     // Create a timeseries, retention is not implemented yet
-    Timeseries *ts = ts_create(db, "temperatures", 0, IGNORE);
+    Timeseries *ts = ts_create(db, "temperatures", 0, DP_IGNORE);
     if (!ts)
         abort();
 

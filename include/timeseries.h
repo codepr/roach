@@ -25,7 +25,7 @@ extern const size_t TS_BATCH_OFFSET;
  * - INSERT just appends the point
  * - UPDATE updates the point with the new value
  */
-typedef enum dup_policy { IGNORE, INSERT } Duplication_Policy;
+typedef enum dup_policy { DP_IGNORE, DP_INSERT } Duplication_Policy;
 
 /*
  * Simple record struct, wrap around a column inside the database, defined as a
