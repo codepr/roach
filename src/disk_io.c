@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-const size_t MAX_PATH_SIZE = 512;
+const size_t MAX_PATH_SIZE = 1024;
 
 int make_dir(const char *path) {
     struct stat st = {0};
@@ -22,7 +22,8 @@ FILE *open_file(const char *path, const char *ext, const char *modes) {
 
     FILE *fp = fopen(path_buf, modes);
     if (!fp) {
-        fprintf(stderr, "Cannot open %s: %s", path_buf, strerror(errno));
+        fprintf(stderr, "Cannot open %s (%s): %s", path_buf, modes,
+                strerror(errno));
         return NULL;
     }
     return fp;

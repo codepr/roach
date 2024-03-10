@@ -23,7 +23,15 @@ String_View string_view_from_cstring(const char *src);
 
 String_View string_view_chop_by_delim(String_View *view, const char delim);
 
-typedef enum { PING, CREATE, INSERT, DELETE, SELECT, UNKNOWN } Command_Type;
+typedef enum {
+    PING,
+    CREATE,
+    INSERT,
+    DELETE,
+    SELECT,
+    QUIT,
+    UNKNOWN
+} Command_Type;
 
 // CREATE, INSERT, SELECT
 typedef struct {

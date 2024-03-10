@@ -15,6 +15,93 @@ const size_t TS_DUMP_SIZE = 512; // 512b
 const size_t TS_BATCH_OFFSET = sizeof(uint64_t) * 3;
 /* const size_t TS_DUMP_SIZE = 4294967296; // 4Mb */
 
+Timeseries_DB *tsdb_init(const char *data_path) {
+    if (!data_path)
+        return NULL;
+
+    if (strlen(data_path) > DATA_PATH_SIZE)
+        return NULL;
+
+    Timeseries_DB *tsdb = malloc(sizeof(*tsdb));
+    if (!tsdb)
+        return NULL;
+    strncpy(tsdb->data_path, data_path, strlen(data_path) + 1);
+
+    // Create the DB path if it doesn't exist
+    char pathbuf[MAX_PATH_SIZE];
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, tsdb->data_path);
+    if (make_dir(pathbuf) < 0)
+        return NULL;
+
+    return tsdb;
+}
+
+void tsdb_close(Timeseries_DB *tsdb) { free(tsdb); }
+
+Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
+                      int64_t retention) {
+    if (!tsdb || !name)
+        return NULL;
+
+    if (strlen(name) > TS_NAME_MAX_LENGTH)
+        return NULL;
+
+    Timeseries *ts = malloc(sizeof(*ts));
+    if (!ts)
+        return NULL;
+
+    ts->retention = retention;
+    ts->partition_nr = 0;
+    for (int i = 0; i < TS_MAX_PARTITIONS; ++i)
+        memset(&ts->partitions[i], 0x00, sizeof(ts->partitions[i]));
+
+    snprintf(ts->name, TS_NAME_MAX_LENGTH, "%s", name);
+    snprintf(ts->db_data_path, DATA_PATH_SIZE, "%s", tsdb->data_path);
+
+    // Create the timeseries path if it doesn't exist
+    char pathbuf[MAX_PATH_SIZE];
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s/%s", BASE_PATH, tsdb->data_path,
+             ts->name);
+
+    if (make_dir(pathbuf) < 0)
+        perror("make dir");
+
+    if (ts_init(ts) < 0) {
+        ts_destroy(ts);
+        free(ts);
+        return NULL;
+    }
+
+    return ts;
+}
+
+Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name) {
+    if (!tsdb || !name)
+        return NULL;
+
+    if (strlen(name) > TS_NAME_MAX_LENGTH)
+        return NULL;
+
+    Timeseries *ts = malloc(sizeof(*ts));
+    for (int i = 0; i < TS_MAX_PARTITIONS; ++i)
+        memset(&ts->partitions[i], 0x00, sizeof(ts->partitions[i]));
+    snprintf(ts->db_data_path, DATA_PATH_SIZE, "%s", tsdb->data_path);
+    snprintf(ts->name, TS_NAME_MAX_LENGTH, "%s", name);
+    if (ts_init(ts) < 0) {
+        ts_destroy(ts);
+        return NULL;
+    }
+
+    return ts;
+}
+
+static void ts_chunk_zero(Timeseries_Chunk *tc) {
+    tc->base_offset = 0;
+    tc->start_ts = 0;
+    tc->max_index = 0;
+    tc->wal.size = 0;
+}
+
 static int ts_chunk_init(Timeseries_Chunk *tc, const char *path,
                          uint64_t base_ts, int main) {
     tc->base_offset = base_ts;
@@ -28,9 +115,11 @@ static int ts_chunk_init(Timeseries_Chunk *tc, const char *path,
 }
 
 static void ts_chunk_destroy(Timeseries_Chunk *tc) {
-    for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
-        vec_destroy(tc->points[i]);
-        tc->points[i].size = 0;
+    if (tc->base_offset != 0) {
+        for (int i = 0; i < TS_CHUNK_SIZE; ++i) {
+            vec_destroy(tc->points[i]);
+            tc->points[i].size = 0;
+        }
     }
     tc->base_offset = 0;
     tc->start_ts = 0;
@@ -48,8 +137,8 @@ static void ts_chunk_destroy(Timeseries_Chunk *tc) {
  * The information stored is initially formed by a timestamp and a long double
  * value
  */
-int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec, uint64_t nsec,
-                        double_t value) {
+static int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec,
+                               uint64_t nsec, double_t value) {
     // Relative offset inside the 2 arrays
     size_t index = sec - tc->base_offset;
     assert(index < TS_CHUNK_SIZE);
@@ -70,20 +159,9 @@ int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec, uint64_t nsec,
     return 0;
 }
 
-Timeseries ts_new(const char *name, uint64_t retention) {
-    Timeseries ts;
-    ts.retention = retention;
-    ts.last_partition = 0;
-    snprintf(ts.name, TS_NAME_MAX_LENGTH, "%s", name);
-    char pathbuf[MAX_PATH_SIZE];
-    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts.name);
-    if (make_dir(pathbuf) < 0)
-        perror("make dir");
-    return ts;
-}
-
 static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
                               uint64_t base_timestamp, int main) {
+
     int err = wal_from_disk(&tc->wal, pathbuf, base_timestamp, main);
     if (err < 0)
         return -1;
@@ -102,6 +180,7 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
     uint8_t *ptr = buf;
     uint64_t timestamp;
     double_t value;
+
     while (n > 0) {
         timestamp = read_i64(ptr);
         value = read_f64(ptr + sizeof(uint64_t));
@@ -122,7 +201,11 @@ static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
 
 int ts_init(Timeseries *ts) {
     char pathbuf[MAX_PATH_SIZE];
-    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s/%s", BASE_PATH, ts->db_data_path,
+             ts->name);
+
+    ts_chunk_zero(&ts->head);
+    ts_chunk_zero(&ts->head);
 
     struct dirent **namelist;
     int err = 0, ok = 0;
@@ -144,7 +227,7 @@ int ts_init(Timeseries *ts) {
         } else if (namelist[i]->d_name[0] == 'c') {
             // There is a log partition
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 3);
-            err = partition_from_disk(&ts->partitions[ts->last_partition++],
+            err = partition_from_disk(&ts->partitions[ts->partition_nr++],
                                       pathbuf, base_timestamp);
         }
 
@@ -166,6 +249,14 @@ exit:
 void ts_destroy(Timeseries *ts) {
     ts_chunk_destroy(&ts->head);
     ts_chunk_destroy(&ts->prev);
+    free(ts);
+}
+
+static void ts_deinit(Timeseries *ts) {
+    ts_chunk_destroy(&ts->head);
+    ts_chunk_destroy(&ts->prev);
+    wal_delete(&ts->head.wal);
+    wal_delete(&ts->prev.wal);
 }
 
 /*
@@ -186,35 +277,33 @@ int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value) {
     uint64_t nsec = timestamp % (uint64_t)1e9;
 
     char pathbuf[MAX_PATH_SIZE];
-    snprintf(pathbuf, sizeof(pathbuf), "%s/%s", BASE_PATH, ts->name);
+    snprintf(pathbuf, sizeof(pathbuf), "%s/%s/%s", BASE_PATH, ts->db_data_path,
+             ts->name);
 
     // if the limit is reached we dump the chunks into disk and create 2 new
     // ones
     if (wal_size(&ts->head.wal) >= TS_DUMP_SIZE) {
         uint64_t base = ts->prev.base_offset > 0 ? ts->prev.base_offset
                                                  : ts->head.base_offset;
-        size_t last_partition =
-            ts->last_partition == 0 ? 0 : ts->last_partition - 1;
+        size_t partition_nr = ts->partition_nr == 0 ? 0 : ts->partition_nr - 1;
 
-        if (ts->partitions[last_partition].clog.base_timestamp < base) {
-            if (partition_init(&ts->partitions[ts->last_partition], pathbuf,
+        if (ts->partitions[partition_nr].clog.base_timestamp < base) {
+            if (partition_init(&ts->partitions[ts->partition_nr], pathbuf,
                                base) < 0) {
                 return -1;
             }
-            last_partition = ts->last_partition;
-            ts->last_partition++;
+            partition_nr = ts->partition_nr;
+            ts->partition_nr++;
         }
 
         // Dump chunks into disk and create new ones
-        if (partition_dump_ts_chunk(&ts->partitions[last_partition],
-                                    &ts->prev) < 0)
+        if (partition_flush_chunk(&ts->partitions[partition_nr], &ts->prev) < 0)
             return -1;
-        if (partition_dump_ts_chunk(&ts->partitions[last_partition],
-                                    &ts->head) < 0)
+        if (partition_flush_chunk(&ts->partitions[partition_nr], &ts->head) < 0)
             return -1;
 
         // Reset clean both head and prev in-memory chunks
-        ts_destroy(ts);
+        ts_deinit(ts);
     }
     // Let it crash for now if the timestamp is out of bounds in the ooo
     if (sec < ts->head.base_offset) {
@@ -305,6 +394,7 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
     uint64_t sec = timestamp / (uint64_t)1e9;
     Record target = {.timestamp = timestamp};
     int err = 0;
+
     if (ts->head.base_offset > 0) {
         // First check the current chunk
         err = ts_search_index(&ts->head, sec, &target, r);
@@ -318,10 +408,14 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
             return err;
     }
 
+    // We have no persistence, can't stop here, no record found
+    if (ts->partitions[0].start_ts == 0)
+        return -1;
+
     // Finally look for the record on disk
     uint8_t buf[RECORD_BINARY_SIZE];
-    size_t partition_i = 0;
-    for (size_t n = 0; n <= ts->last_partition; ++n) {
+    ssize_t partition_i = 0;
+    for (size_t n = 0; n <= ts->partition_nr; ++n) {
         if (ts->partitions[n].clog.base_timestamp > 0 &&
             ts->partitions[n].clog.base_timestamp <= sec) {
             uint64_t curr_ts =
@@ -332,6 +426,10 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r) {
         if (ts->partitions[n].clog.base_timestamp > sec)
             break;
     }
+
+    // This shouldn't happen, but in case, we return timestamp not found
+    if (partition_i < 0)
+        return -1;
 
     err = partition_find(&ts->partitions[partition_i], buf, timestamp);
     if (err < 0)
@@ -403,7 +501,7 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
         const Partition *curr_p = &ts->partitions[0];
 
         // Let's find out the starting partition
-        while (partition_i < ts->last_partition) {
+        while (partition_i < ts->partition_nr) {
             if (curr_p->end_ts >= t0)
                 break;
             partition_i++;
@@ -412,7 +510,7 @@ int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p) {
         curr_p = &ts->partitions[partition_i];
 
         if (curr_p->start_ts <= t0) {
-            while (partition_i < ts->last_partition) {
+            while (partition_i < ts->partition_nr) {
                 curr_p = &ts->partitions[partition_i];
                 int n = 0;
                 if (curr_p->end_ts >= t1) {

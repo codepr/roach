@@ -22,10 +22,11 @@ Still at the very early stages, the main concepts are
 
 ### TODO
 
-- Employ an arena for allocations
+- Adopt an arena for allocations
 - Text based protocol
 - TCP server
 - Memory mapped indexes
+- Schema definitions
 
 ### Usage
 
@@ -37,7 +38,7 @@ At the current stage, no server attached, just a tiny library with some crude AP
 int main() {
     // Initialize the database, retention is not implemented yet
     // ts_new takes care of creating the metric
-    Timeseries ts = ts_new("data", 0);
+    Timeseries ts = ts_create("data", 0);
 
     // Insert records into the timeseries
     ts_set_record(&ts, 1609459200000000000, 25.5);

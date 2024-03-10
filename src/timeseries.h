@@ -11,6 +11,7 @@
 #define TS_NAME_MAX_LENGTH 1 << 9
 #define TS_CHUNK_SIZE 900 // 15 min
 #define TS_MAX_PARTITIONS 16
+#define DATA_PATH_SIZE 1 << 8
 
 extern const size_t TS_DUMP_SIZE;
 extern const size_t TS_BATCH_OFFSET;
@@ -21,11 +22,19 @@ extern const size_t TS_BATCH_OFFSET;
  * column
  */
 typedef struct record {
-    uint64_t timestamp;
     struct timespec tv;
+    uint64_t timestamp;
     double_t value;
     int is_set;
 } Record;
+
+size_t ts_record_timestamp(const uint8_t *buf);
+
+size_t ts_record_write(const Record *r, uint8_t *buf);
+
+size_t ts_record_read(Record *r, const uint8_t *buf);
+
+size_t ts_record_batch_write(const Record *r[], uint8_t *buf, size_t count);
 
 typedef VEC(Record) Points;
 
@@ -54,24 +63,12 @@ typedef struct timeseries_chunk {
 typedef struct timeseries {
     int64_t retention;
     char name[TS_NAME_MAX_LENGTH];
+    char db_data_path[DATA_PATH_SIZE];
     Timeseries_Chunk head;
     Timeseries_Chunk prev;
     Partition partitions[TS_MAX_PARTITIONS];
-    size_t last_partition;
+    size_t partition_nr;
 } Timeseries;
-
-size_t ts_record_timestamp(const uint8_t *buf);
-
-size_t ts_record_write(const Record *r, uint8_t *buf);
-
-size_t ts_record_read(Record *r, const uint8_t *buf);
-
-size_t ts_record_batch_write(const Record *r[], uint8_t *buf, size_t count);
-
-int ts_chunk_set_record(Timeseries_Chunk *ts_chunk, uint64_t sec, uint64_t nsec,
-                        double_t value);
-
-Timeseries ts_new(const char *name, uint64_t retention);
 
 int ts_init(Timeseries *ts);
 
@@ -84,5 +81,18 @@ int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r);
 int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p);
 
 void ts_print(const Timeseries *ts);
+
+typedef struct timeseries_db {
+    char data_path[DATA_PATH_SIZE];
+} Timeseries_DB;
+
+Timeseries_DB *tsdb_init(const char *data_path);
+
+void tsdb_close(Timeseries_DB *tsdb);
+
+Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
+                      int64_t retention);
+
+Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name);
 
 #endif

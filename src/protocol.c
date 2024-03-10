@@ -63,6 +63,8 @@ Command parse_command(const char *input) {
     } else if (strncmp(tokens[0].p, "DELETE", 6) == 0) {
         cmd.type = DELETE;
         strncpy(cmd.metric, tokens[1].p, tokens[1].length);
+    } else if (strncmp(tokens[0].p, "QUIT", 4) == 0) {
+        cmd.type = QUIT;
     } else {
         // Invalid command type
         log_error("Invalid command");

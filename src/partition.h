@@ -17,7 +17,7 @@ int partition_init(Partition *p, const char *path, uint64_t base);
 
 int partition_from_disk(Partition *p, const char *path, uint64_t base);
 
-int partition_dump_ts_chunk(Partition *p, const Timeseries_Chunk *tc);
+int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc);
 
 int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp);
 

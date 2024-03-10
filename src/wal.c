@@ -35,7 +35,7 @@ int wal_delete(Wal *w) {
     w->size = 0;
     char tmp[WAL_PATH_SIZE + 5];
     snprintf(tmp, sizeof(tmp), "%s.log", w->path);
-    printf("Removing %s\n", tmp);
+
     return remove(tmp);
 }
 

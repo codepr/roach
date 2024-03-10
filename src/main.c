@@ -45,34 +45,39 @@
 
 int main(void) {
     /* uint64_t timestamps[POINTS_NR]; */
-    /* Timeseries ts = ts_new("tsdata", 0); */
-    /* int ok = ts_init(&ts); */
-    /* if (!ok) { */
-    /*     FILE *fp = open_file("logdata/tsdata/timestamps", "ts", "w"); */
-    /*     struct timespec tv; */
-    /*     for (int i = 0; i < POINTS_NR; ++i) { */
-    /*         clock_gettime(CLOCK_REALTIME, &tv); */
-    /*         uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec; */
-    /*         timestamps[i] = timestamp; */
-    /*         ts_set_record(&ts, timestamp, (double_t)i); */
-    /*         usleep(15000); */
-    /*     } */
-    /*     dump_timestamps(fp, timestamps); */
-    /*     fclose(fp); */
-    /* } else { */
-    /*     FILE *fp = open_file("logdata/tsdata/timestamps", "ts", "r"); */
-    /*     read_timestamps(fp, timestamps); */
-    /*     fclose(fp); */
+
+    Timeseries_DB *db = tsdb_init("testdb");
+    if (!db) {
+        log_error("Panic: mkdir");
+        abort();
+    }
+
+    /* Timeseries *ts = ts_create(db, "temperatures", 0); */
+    Timeseries *ts = ts_get(db, "temperatures");
+    if (!ts) {
+        log_error("Panic: mkdir");
+        abort();
+    }
+
+    /* struct timespec tv; */
+    /* for (int i = 0; i < POINTS_NR; ++i) { */
+    /*     clock_gettime(CLOCK_REALTIME, &tv); */
+    /*     uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec; */
+    /*     timestamps[i] = timestamp; */
+    /*     ts_set_record(ts, timestamp, (double_t)i); */
+    /*     usleep(115000); */
     /* } */
 
-    /* ts_print(&ts); */
-    /* log_info("Print log"); */
-    /* for (size_t i = 0; i <= ts.last_partition; ++i) */
-    /*     c_log_print(&ts.partitions[i].clog); */
+    /* p_index_print(&ts->partitions[0].index); */
+
+    ts_print(ts);
+    log_info("Print log");
+    for (size_t i = 0; i <= ts->partition_nr; ++i)
+        c_log_print(&ts->partitions[i].clog);
 
     /* log_info("Find single record at %lu", timestamps[2]); */
     /* Record r; */
-    /* (void)ts_find_record(&ts, timestamps[2], &r); */
+    /* (void)ts_find_record(ts, timestamps[2], &r); */
     /* log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp, */
     /*          r.tv.tv_sec, r.tv.tv_nsec, r.value); */
 
@@ -80,7 +85,7 @@ int main(void) {
      * timestamps[88]); */
     /* Points coll; */
     /* vec_new(coll); */
-    /* (void)ts_range(&ts, timestamps[74], timestamps[88], &coll); */
+    /* (void)ts_range(ts, timestamps[74], timestamps[88], &coll); */
     /* for (size_t i = 0; i < vec_size(coll); i++) { */
     /*     Record r = vec_at(coll, i); */
     /*     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f }", r.timestamp,
@@ -96,33 +101,33 @@ int main(void) {
     /* /\* p_index_print(&p.index); *\/ */
 
     /* log_info("Find single record at %lu", timestamps[51]); */
-    /* ts_find_record(&ts, timestamps[51], &r); */
+    /* ts_find_record(ts, timestamps[51], &r); */
     /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
     /* log_info("Find single record at %lu", timestamps[0]); */
-    /* ts_find_record(&ts, timestamps[0], &r); */
+    /* ts_find_record(ts, timestamps[0], &r); */
     /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
     /* log_info("Find single record at %lu", timestamps[23]); */
-    /* ts_find_record(&ts, timestamps[23], &r); */
+    /* ts_find_record(ts, timestamps[23], &r); */
     /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
     /* log_info("Find single record at %lu", timestamps[89]); */
-    /* ts_find_record(&ts, timestamps[89], &r); */
+    /* ts_find_record(ts, timestamps[89], &r); */
     /* log_info("%lu %.20lf", r.timestamp, r.value); */
 
     /* /\* c_log_print(&p.clog); *\/ */
 
-    /* /\* p_index_print(&ts.partitions[0].index); *\/ */
+    /* /\* p_index_print(ts->partitions[0].index); *\/ */
 
     /* log_info("Looking for record: %lu", timestamps[88]); */
-    /* ts_find_record(&ts, timestamps[88], &r); */
+    /* ts_find_record(ts, timestamps[88], &r); */
     /* log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp, */
     /*          r.tv.tv_sec, r.tv.tv_nsec, r.value); */
 
     /* log_info("[1] Looking for a range: %lu - %lu", timestamps[1], */
     /*          timestamps[41]); */
-    /* ts_range(&ts, timestamps[1], timestamps[41], &coll); */
+    /* ts_range(ts, timestamps[1], timestamps[41], &coll); */
     /* for (size_t i = 0; i < vec_size(coll); i++) { */
     /*     Record r = vec_at(coll, i); */
     /*     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp, */
@@ -134,7 +139,7 @@ int main(void) {
 
     /* log_info("[2] Looking for a range: %lu - %lu", timestamps[1], */
     /*          timestamps[89]); */
-    /* ts_range(&ts, timestamps[1], timestamps[89], &coll); */
+    /* ts_range(ts, timestamps[1], timestamps[89], &coll); */
     /* for (size_t i = 0; i < vec_size(coll); i++) { */
     /*     Record r = vec_at(coll, i); */
     /*     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f", r.timestamp, */
@@ -142,35 +147,100 @@ int main(void) {
     /* } */
 
     /* vec_destroy(coll); */
-    /* ts_destroy(&ts); */
+    ts_destroy(ts);
 
-    Timeseries ts = {0};
-    Record r = {0};
+    /* Timeseries_DB *db = tsdb_init("testdb"); */
+    /* if (!db) { */
+    /*     log_info("Panic: mkdir"); */
+    /*     abort(); */
+    /* } */
 
-    while (1) {
-        // Read command from client
-        char input[256];
-        fgets(input, sizeof(input), stdin);
-        input[strcspn(input, "\r\n")] = 0;
+    /* /\* Timeseries *ts = ts_create(db, "temperatures", 0); *\/ */
+    /* Timeseries *ts = ts_get(db, "temperatures"); */
+    /* if (!ts) { */
+    /*     log_info("Panic: mkdir"); */
+    /*     abort(); */
+    /* } */
 
-        Command cmd = parse_command(input);
+    /* struct timespec tv; */
+    /* clock_gettime(CLOCK_REALTIME, &tv); */
+    /* uint64_t timestamp1 = tv.tv_sec * 1e9 + tv.tv_nsec; */
+    /* ts_set_record(ts, timestamp1, 25.5); */
+    /* usleep(15000); */
+    /* clock_gettime(CLOCK_REALTIME, &tv); */
+    /* uint64_t timestamp2 = tv.tv_sec * 1e9 + tv.tv_nsec; */
+    /* ts_set_record(ts, timestamp2, 27.3); */
 
-        switch (cmd.type) {
-        case CREATE:
-            ts = ts_new(cmd.metric, 0);
-            printf("+Ok\n");
-            break;
-        case INSERT:
-            ts_set_record(&ts, cmd.timestamp, cmd.value);
-            printf("+Ok (%lu)\n", cmd.timestamp);
-            break;
-        case SELECT:
-            ts_find_record(&ts, cmd.timestamp, &r);
-            printf("%lu %0.2lf\n", r.timestamp, r.value);
-            break;
-        default:
-            log_error("Unknown command");
-        }
-    }
+    /* Record r = {0}; */
+    /* int result = ts_find_record(ts, timestamp1, &r); */
+    /* if (result == 0) { */
+    /*     printf("Record found: timestamp=%lu value=%.2f\n", r.timestamp, */
+    /*            r.value); */
+    /* } else { */
+    /*     printf("Record not found.\n"); */
+    /* } */
+    /* result = ts_find_record(ts, timestamp2, &r); */
+    /* if (result == 0) { */
+    /*     printf("Record found: timestamp=%lu value=%.2f\n", r.timestamp, */
+    /*            r.value); */
+    /* } else { */
+    /*     printf("Record not found.\n"); */
+    /* } */
+
+    /* ts_destroy(ts); */
+    /* int run = 1; */
+    /* Timeseries_DB *db = tsdb_init("testdb"); */
+    /* if (!db) { */
+    /*     log_info("Panic: mkdir"); */
+    /*     abort(); */
+    /* } */
+    /* Timeseries *ts; */
+    /* Record r = {0}; */
+
+    /* while (run) { */
+    /*     // Read command from client */
+    /*     char input[256]; */
+    /*     fgets(input, sizeof(input), stdin); */
+    /*     input[strcspn(input, "\r\n")] = 0; */
+
+    /*     Command cmd = parse_command(input); */
+
+    /*     switch (cmd.type) { */
+    /*     case CREATE: */
+    /*         ts = ts_create(db, cmd.metric, 0); */
+    /*         printf("+Ok\n"); */
+    /*         break; */
+    /*     case INSERT: */
+    /*         ts = ts != NULL && strncmp(cmd.metric, ts->name,
+     * strlen(cmd.metric)) */
+    /*                  ? ts */
+    /*                  : ts_get(db, cmd.metric); */
+    /*         ts_set_record(ts, cmd.timestamp, cmd.value); */
+    /*         printf("+Ok (%lu)\n", cmd.timestamp); */
+    /*         break; */
+    /*     case SELECT: */
+    /*         ts = ts != NULL && strncmp(cmd.metric, ts->name,
+     * strlen(cmd.metric)) */
+    /*                  ? ts */
+    /*                  : ts_get(db, cmd.metric); */
+    /*         printf("metric %s (%lu) vs ts name %s (%lu), %i\n",
+     * cmd.metric,
+     */
+    /*                strlen(cmd.metric), ts->name, strlen(ts->name), */
+    /*                strncmp(cmd.metric, ts->name, strlen(cmd.metric))); */
+    /*         ts_find_record(ts, cmd.timestamp, &r); */
+    /*         printf("%lu %0.2lf\n", r.timestamp, r.value); */
+    /*         break; */
+    /*     case QUIT: */
+    /*         free(ts); */
+    /*         run = 0; */
+    /*         break; */
+    /*     default: */
+    /*         log_error("Unknown command"); */
+    /*     } */
+    /* } */
+
+    tsdb_close(db);
+
     return 0;
 }
