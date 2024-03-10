@@ -50,6 +50,7 @@ typedef struct timeseries_chunk {
     Wal wal;
     uint64_t base_offset;
     uint64_t start_ts;
+    uint64_t end_ts;
     size_t max_index;
     Points points[TS_CHUNK_SIZE];
 } Timeseries_Chunk;

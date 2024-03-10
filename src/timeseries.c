@@ -107,6 +107,7 @@ Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name) {
 static void ts_chunk_zero(Timeseries_Chunk *tc) {
     tc->base_offset = 0;
     tc->start_ts = 0;
+    tc->end_ts = 0;
     tc->max_index = 0;
     tc->wal.size = 0;
 }
@@ -115,6 +116,7 @@ static int ts_chunk_init(Timeseries_Chunk *tc, const char *path,
                          uint64_t base_ts, int main) {
     tc->base_offset = base_ts;
     tc->start_ts = 0;
+    tc->end_ts = 0;
     tc->max_index = 0;
 
     for (int i = 0; i < TS_CHUNK_SIZE; ++i)
@@ -135,6 +137,7 @@ static void ts_chunk_destroy(Timeseries_Chunk *tc) {
     }
     tc->base_offset = 0;
     tc->start_ts = 0;
+    tc->end_ts = 0;
     tc->max_index = 0;
 }
 
@@ -150,6 +153,23 @@ static int ts_chunk_record_fit(const Timeseries_Chunk *tc, uint64_t sec) {
         return -1;
 
     return 0;
+}
+
+/*
+ * Compare two Record structures, taking into account the timestamp of each.
+ *
+ * It returns an integer following the rules:
+ *
+ * . -1 r1 is lesser than r2
+ * .  0 r1 is equal to r2
+ * .  1 r1 is greater than r2
+ */
+static int record_cmp(const Record *r1, const Record *r2) {
+    if (r1->timestamp == r2->timestamp)
+        return 0;
+    if (r1->timestamp > r2->timestamp)
+        return 1;
+    return -1;
 }
 
 /*
@@ -173,6 +193,7 @@ static int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec,
                                uint64_t nsec, double_t value) {
     // Relative offset inside the 2 arrays
     size_t index = sec - tc->base_offset;
+
     // Append to the last record in this timestamp bucket
     Record point = {
         .value = value,
@@ -180,11 +201,26 @@ static int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec,
         .tv = (struct timespec){.tv_sec = sec, .tv_nsec = nsec},
         .is_set = 1,
     };
-    // May want to insertion sort here
-    vec_push(tc->points[index], point);
-    tc->max_index = index > tc->max_index ? index : tc->max_index;
+
+    // Check if the timestamp is ordered
+    if (tc->end_ts != 0 && tc->end_ts > point.timestamp) {
+        ssize_t i = 0;
+        vec_bsearch_cmp(tc->points[index], &point, record_cmp, &i);
+        if (i < 0)
+            return -1;
+        // Simple shift of existing elements, maybe worth adding a support
+        // vector for out of order (in chunk range) records and merge them
+        // when flushing, must profile
+        // NB WAL doesn't need any change as it will act as an event
+        // log, replayable to obtain the up-to-date state
+        vec_insert_at(tc->points[index], (size_t)i, point);
+    } else {
+        vec_push(tc->points[index], point);
+        tc->max_index = index > tc->max_index ? index : tc->max_index;
+    }
 
     tc->start_ts = tc->start_ts == 0 ? point.timestamp : tc->start_ts;
+    tc->end_ts = point.timestamp;
 
     return 0;
 }
@@ -373,23 +409,6 @@ int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value) {
     }
     // Insert it into the head chunk
     return ts_chunk_set_record(&ts->head, sec, nsec, value);
-}
-
-/*
- * Compare two Record structures, taking into account the timestamp of each.
- *
- * It returns an integer following the rules:
- *
- * . -1 r1 is lesser than r2
- * .  0 r1 is equal to r2
- * .  1 r1 is greater than r2
- */
-static int record_cmp(const Record *r1, const Record *r2) {
-    if (r1->timestamp == r2->timestamp)
-        return 0;
-    if (r1->timestamp > r2->timestamp)
-        return 1;
-    return -1;
 }
 
 static int ts_search_index(const Timeseries_Chunk *tc, uint64_t sec,

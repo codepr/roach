@@ -45,7 +45,7 @@
     do {                                                                       \
         assert((index) > 0 && (index) < vec_size((vec)));                      \
         memmove((vec).data + (index), (vec).data + (index) + 1,                \
-                (vec).size - (index));                                         \
+                ((vec).size - (index)) * sizeof((vec).data[0]));               \
         (vec).size--;                                                          \
     } while (0)
 
@@ -59,6 +59,20 @@
         }                                                                      \
     } while (0);
 
+#define vec_insert_at(vec, index, item)                                        \
+    do {                                                                       \
+        assert((index) > 0 && (index) < vec_size((vec)));                      \
+        if (vec_size((vec)) + 1 == vec_capacity((vec))) {                      \
+            (vec).capacity *= 2;                                               \
+            (vec).data =                                                       \
+                realloc((vec).data, (vec).capacity * sizeof((vec).data[0]));   \
+        }                                                                      \
+        memmove((vec).data + (index) + 1, (vec).data + (index),                \
+                ((vec).size - (index) + 1) * sizeof((vec).data[0]));           \
+        (vec).data[(index)] = (item);                                          \
+        (vec).size++;                                                          \
+    } while (0);
+
 #define vec_at(vec, index) (vec).data[(index)]
 
 #define vec_first(vec) vec_at((vec), 0)
@@ -67,7 +81,8 @@
 
 #define vec_resize(vec, start)                                                 \
     do {                                                                       \
-        memmove((vec).data, (vec).data + (start), (vec).size - (start));       \
+        memmove((vec).data, (vec).data + (start),                              \
+                ((vec).size - (start)) * sizeof((vec).data[0]));               \
         (vec).size -= (start);                                                 \
     } while (0)
 

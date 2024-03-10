@@ -158,6 +158,13 @@ int main(void) {
     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
+    log_info("[5] Add an out of order in range timestamp");
+    ts_insert(ts, timestamps[85] + 3e4, 111.231);
+    ts_print(ts);
+    (void)ts_find(ts, timestamps[85] + 3e4, &r);
+    log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
+             r.tv.tv_sec, r.tv.tv_nsec, r.value);
+
     vec_destroy(coll);
     ts_close(ts);
 
