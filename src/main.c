@@ -1,8 +1,6 @@
-#include "binary.h"
 #include "commit_log.h"
-#include "disk_io.h"
 #include "logging.h"
-#include "partition.h"
+#include "persistent_index.h"
 #include "protocol.h"
 #include "timeseries.h"
 #include <stdio.h>

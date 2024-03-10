@@ -22,6 +22,9 @@ Timeseries_DB *tsdb_init(const char *data_path) {
     if (strlen(data_path) > DATA_PATH_SIZE)
         return NULL;
 
+    if (make_dir(BASE_PATH) < 0)
+        return NULL;
+
     Timeseries_DB *tsdb = malloc(sizeof(*tsdb));
     if (!tsdb)
         return NULL;
