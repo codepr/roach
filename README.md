@@ -79,12 +79,12 @@ int main() {
         abort();
 
     // Insert records into the timeseries
-    ts_set_record(&ts, 1710033421702081792, 25.5);
-    ts_set_record(&ts, 1710033422047657984, 26.0);
+    ts_insert(&ts, 1710033421702081792, 25.5);
+    ts_insert(&ts, 1710033422047657984, 26.0);
 
     // Find a record by timestamp
     Record r;
-    int result = ts_find_record(&ts, 1710033422047657984, &r);
+    int result = ts_find(&ts, 1710033422047657984, &r);
     if (result == 0) {
         printf("Record found: timestamp=%lu, value=%.2lf\n", r.timestamp, r.value);
     } else {
@@ -92,7 +92,7 @@ int main() {
     }
 
     // Release the timeseries
-    ts_destroy(&ts);
+    ts_close(&ts);
 
     // Close the database
     tsdb_close(db);

@@ -62,7 +62,7 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
 
     size_t total_records = 0;
     size_t batch_size = 0;
-    uint8_t *buf = malloc(TS_DUMP_SIZE * 2);
+    uint8_t *buf = malloc(TS_FLUSH_SIZE * 2);
     if (!buf) {
         vec_destroy(records);
         return -1;

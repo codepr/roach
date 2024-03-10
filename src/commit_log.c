@@ -7,11 +7,16 @@
 int c_log_init(Commit_Log *cl, const char *path, uint64_t base) {
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/c-%.20lu", path, base);
+
     cl->fp = open_file(path_buf, "log", "w+");
+    if (!cl->fp)
+        return -1;
+
     cl->base_timestamp = base;
     cl->base_ns = 0;
     cl->current_timestamp = base;
     cl->size = 0;
+
     return 0;
 }
 
@@ -22,6 +27,9 @@ int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base) {
     snprintf(path_buf, sizeof(path_buf), "%s/c-%.20lu", path, base);
 
     cl->fp = open_file(path_buf, "log", "r");
+    if (!cl->fp)
+        return -1;
+
     cl->base_timestamp = base;
 
     uint64_t record_size = 0;
@@ -29,6 +37,7 @@ int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base) {
     Buffer buffer;
     if (buf_read_file(cl->fp, &buffer) < 0)
         return -1;
+
     size_t size = buffer.size;
     uint8_t *buf = buffer.buf;
 

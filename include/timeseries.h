@@ -13,7 +13,7 @@
 #define TS_MAX_PARTITIONS 16
 #define DATA_PATH_SIZE 1 << 8
 
-extern const size_t TS_DUMP_SIZE;
+extern const size_t TS_FLUSH_SIZE;
 extern const size_t TS_BATCH_OFFSET;
 
 /*
@@ -73,11 +73,11 @@ typedef struct timeseries {
 
 extern int ts_init(Timeseries *ts);
 
-extern void ts_destroy(Timeseries *ts);
+extern void ts_close(Timeseries *ts);
 
-extern int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
+extern int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value);
 
-extern int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r);
+extern int ts_find(const Timeseries *ts, uint64_t timestamp, Record *r);
 
 extern int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p);
 

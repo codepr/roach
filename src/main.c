@@ -62,7 +62,7 @@ int main(void) {
         clock_gettime(CLOCK_REALTIME, &tv);
         uint64_t timestamp = tv.tv_sec * 1e9 + tv.tv_nsec;
         timestamps[i] = timestamp;
-        ts_set_record(ts, timestamp, (double_t)i);
+        ts_insert(ts, timestamp, (double_t)i);
         usleep(115000);
     }
 
@@ -75,7 +75,7 @@ int main(void) {
 
     log_info("Find single record at %lu", timestamps[2]);
     Record r;
-    (void)ts_find_record(ts, timestamps[2], &r);
+    (void)ts_find(ts, timestamps[2], &r);
     log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
@@ -97,19 +97,19 @@ int main(void) {
     /* p_index_print(&p.index); */
 
     log_info("Find single record at %lu", timestamps[51]);
-    ts_find_record(ts, timestamps[51], &r);
+    ts_find(ts, timestamps[51], &r);
     log_info("%lu %.20lf", r.timestamp, r.value);
 
     log_info("Find single record at %lu", timestamps[0]);
-    ts_find_record(ts, timestamps[0], &r);
+    ts_find(ts, timestamps[0], &r);
     log_info("%lu %.20lf", r.timestamp, r.value);
 
     log_info("Find single record at %lu", timestamps[23]);
-    ts_find_record(ts, timestamps[23], &r);
+    ts_find(ts, timestamps[23], &r);
     log_info("%lu %.20lf", r.timestamp, r.value);
 
     log_info("Find single record at %lu", timestamps[89]);
-    ts_find_record(ts, timestamps[89], &r);
+    ts_find(ts, timestamps[89], &r);
     log_info("%lu %.20lf", r.timestamp, r.value);
 
     /* c_log_print(&p.clog); */
@@ -117,7 +117,7 @@ int main(void) {
     /* p_index_print(ts->partitions[0].index); */
 
     log_info("Looking for record: %lu", timestamps[88]);
-    ts_find_record(ts, timestamps[88], &r);
+    ts_find(ts, timestamps[88], &r);
     log_info(" %lu {.sec: %lu, .nsec: %lu, .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
@@ -143,23 +143,23 @@ int main(void) {
     }
 
     log_info("[3] Add an out of bounds timestamp");
-    ts_set_record(ts, timestamps[89] + 5e9, 181.1);
+    ts_insert(ts, timestamps[89] + 5e9, 181.1);
     for (size_t i = 0; i <= ts->partition_nr; ++i)
         c_log_print(&ts->partitions[i].clog);
-    (void)ts_find_record(ts, timestamps[89] + 5e9, &r);
+    (void)ts_find(ts, timestamps[89] + 5e9, &r);
     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
     log_info("[4] Add a prev range timestamp");
-    ts_set_record(ts, timestamps[89] + 5e7, 141.231);
+    ts_insert(ts, timestamps[89] + 5e7, 141.231);
     for (size_t i = 0; i <= ts->partition_nr; ++i)
         c_log_print(&ts->partitions[i].clog);
-    (void)ts_find_record(ts, timestamps[89] + 5e7, &r);
+    (void)ts_find(ts, timestamps[89] + 5e7, &r);
     log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f}", r.timestamp,
              r.tv.tv_sec, r.tv.tv_nsec, r.value);
 
     vec_destroy(coll);
-    ts_destroy(ts);
+    ts_close(ts);
 
     /* Timeseries_DB *db = tsdb_init("testdb"); */
     /* if (!db) { */
@@ -177,21 +177,21 @@ int main(void) {
     /* struct timespec tv; */
     /* clock_gettime(CLOCK_REALTIME, &tv); */
     /* uint64_t timestamp1 = tv.tv_sec * 1e9 + tv.tv_nsec; */
-    /* ts_set_record(ts, timestamp1, 25.5); */
+    /* ts_insert(ts, timestamp1, 25.5); */
     /* usleep(15000); */
     /* clock_gettime(CLOCK_REALTIME, &tv); */
     /* uint64_t timestamp2 = tv.tv_sec * 1e9 + tv.tv_nsec; */
-    /* ts_set_record(ts, timestamp2, 27.3); */
+    /* ts_insert(ts, timestamp2, 27.3); */
 
     /* Record r = {0}; */
-    /* int result = ts_find_record(ts, timestamp1, &r); */
+    /* int result = ts_find(ts, timestamp1, &r); */
     /* if (result == 0) { */
     /*     printf("Record found: timestamp=%lu value=%.2f\n", r.timestamp, */
     /*            r.value); */
     /* } else { */
     /*     printf("Record not found.\n"); */
     /* } */
-    /* result = ts_find_record(ts, timestamp2, &r); */
+    /* result = ts_find(ts, timestamp2, &r); */
     /* if (result == 0) { */
     /*     printf("Record found: timestamp=%lu value=%.2f\n", r.timestamp, */
     /*            r.value); */
@@ -199,7 +199,7 @@ int main(void) {
     /*     printf("Record not found.\n"); */
     /* } */
 
-    /* ts_destroy(ts); */
+    /* ts_close(ts); */
     /* int run = 1; */
     /* Timeseries_DB *db = tsdb_init("testdb"); */
     /* if (!db) { */
@@ -227,7 +227,7 @@ int main(void) {
      * strlen(cmd.metric)) */
     /*                  ? ts */
     /*                  : ts_get(db, cmd.metric); */
-    /*         ts_set_record(ts, cmd.timestamp, cmd.value); */
+    /*         ts_insert(ts, cmd.timestamp, cmd.value); */
     /*         printf("+Ok (%lu)\n", cmd.timestamp); */
     /*         break; */
     /*     case SELECT: */
@@ -240,7 +240,7 @@ int main(void) {
      */
     /*                strlen(cmd.metric), ts->name, strlen(ts->name), */
     /*                strncmp(cmd.metric, ts->name, strlen(cmd.metric))); */
-    /*         ts_find_record(ts, cmd.timestamp, &r); */
+    /*         ts_find(ts, cmd.timestamp, &r); */
     /*         printf("%lu %0.2lf\n", r.timestamp, r.value); */
     /*         break; */
     /*     case QUIT: */
