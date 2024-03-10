@@ -50,7 +50,7 @@ int main(void) {
         abort();
     }
 
-    Timeseries *ts = ts_create(db, "temperatures", 0);
+    Timeseries *ts = ts_create(db, "temperatures", 0, IGNORE);
     /* Timeseries *ts = ts_get(db, "temperatures"); */
     if (!ts) {
         log_error("Panic: mkdir");

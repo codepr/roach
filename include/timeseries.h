@@ -17,6 +17,17 @@ extern const size_t TS_FLUSH_SIZE;
 extern const size_t TS_BATCH_OFFSET;
 
 /*
+ * Enum defining the rules to apply when a duplicate point is
+ * inserted in the timeseries.
+ *
+ * It currently just support
+ * - IGNORE drops the point, returning a failure at insert attempt
+ * - INSERT just appends the point
+ * - UPDATE updates the point with the new value
+ */
+typedef enum dup_policy { IGNORE, INSERT } Duplication_Policy;
+
+/*
  * Simple record struct, wrap around a column inside the database, defined as a
  * key-val couple alike, though it's used only to describe the value of each
  * column
@@ -70,6 +81,7 @@ typedef struct timeseries {
     Timeseries_Chunk prev;
     Partition partitions[TS_MAX_PARTITIONS];
     size_t partition_nr;
+    Duplication_Policy policy;
 } Timeseries;
 
 extern int ts_init(Timeseries *ts);
@@ -93,7 +105,7 @@ extern Timeseries_DB *tsdb_init(const char *data_path);
 extern void tsdb_close(Timeseries_DB *tsdb);
 
 extern Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
-                             int64_t retention);
+                             int64_t retention, Duplication_Policy policy);
 
 extern Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name);
 

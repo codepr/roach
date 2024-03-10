@@ -43,7 +43,7 @@ Timeseries_DB *tsdb_init(const char *data_path) {
 void tsdb_close(Timeseries_DB *tsdb) { free(tsdb); }
 
 Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
-                      int64_t retention) {
+                      int64_t retention, Duplication_Policy policy) {
     if (!tsdb || !name)
         return NULL;
 
@@ -56,6 +56,7 @@ Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
 
     ts->retention = retention;
     ts->partition_nr = 0;
+    ts->policy = policy;
     for (int i = 0; i < TS_MAX_PARTITIONS; ++i)
         memset(&ts->partitions[i], 0x00, sizeof(ts->partitions[i]));
 
@@ -96,6 +97,8 @@ Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name) {
     snprintf(ts->db_data_path, DATA_PATH_SIZE, "%s", tsdb->data_path);
     snprintf(ts->name, TS_NAME_MAX_LENGTH, "%s", name);
 
+    // TODO consider adding some metadata file which saves TS info such as the
+    // duplication policy
     if (ts_init(ts) < 0) {
         ts_close(ts);
         return NULL;

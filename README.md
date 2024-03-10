@@ -7,11 +7,13 @@ structure applications.
 
 ### Basics
 
-Still at the very early stages, the main concepts are
+Still at a very early stage, the main concepts are
 
+- Fixed size records, to keep things simple each record is represented by just
+  a timestamp with nanoseconds precision and a double
 - In memory segments: Data is stored in timeseries format, allowing efficient
   querying and retrieval based on timestamps, with the last slice of data in
-  memory, composed by 2 segments (currently covering 15 minutes of data each)
+  memory, composed by two segments (currently covering 15 minutes of data each)
   - The last 15 minutes of data
   - The previous 15 minutes for records out of order, totalling 30 minutes
 - Commit Log: Persistence is achieved using a commit log at the base, ensuring
@@ -22,15 +24,28 @@ Still at the very early stages, the main concepts are
 
 ### TODO
 
-- Adopt an arena for allocations
-- Text based protocol
-- TCP server
-- Memory mapped indexes
+- Duplicate points policy
+- CRC32 of records for data integrity
+- Adopt an arena for memory allocations
+- Memory mapped indexes, above a threshold enable binary search
 - Schema definitions
+- Server: Text based protocol, a simplified SQL-like would be cool
 
 ### Usage
 
-At the current stage, no server attached, just a tiny library with some crude APIs.
+At the current stage, no server attached, just a tiny library with some crude APIs;
+
+- `tsdb_init(1)` creates a new database
+- `tsdb_close(1)` closes the database
+- `ts_create(3)` creates a new timeseries in a given database
+- `ts_get(2)` retrieve an existing timeseries from a database
+- `ts_insert(3)` inserts a new point into the timeseries
+- `ts_find(3)` finds a point inside the timeseries
+- `ts_range(4)` finds a range of points in the timeseries, returning a vector
+  with the results
+- `ts_close(1)` closes a timeseries
+
+Plus a few other helpers.
 
 #### As a library
 
@@ -48,9 +63,9 @@ In the target project, a generic hello world
 
 int main(void) {
     // Example usage of timeseries library functions
-    Timeseries *ts = ts_create("example_ts");
+    Timeseries_DB *db = tsdb_init("example_ts");
     // Use timeseries functions...
-    ts_destroy(ts);
+    tsdb_close(db);
     return 0;
 }
 
@@ -74,7 +89,7 @@ int main() {
         abort();
 
     // Create a timeseries, retention is not implemented yet
-    Timeseries *ts = ts_create(db, "temperatures", 0);
+    Timeseries *ts = ts_create(db, "temperatures", 0, IGNORE);
     if (!ts)
         abort();
 
