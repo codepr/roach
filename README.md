@@ -32,6 +32,38 @@ Still at the very early stages, the main concepts are
 
 At the current stage, no server attached, just a tiny library with some crude APIs.
 
+#### As a library
+
+Build the `libtimeseries.so` first
+
+```bash
+make
+```
+
+In the target project, a generic hello world
+
+```c
+#include <stdio.h>
+#include "timeseries.h"
+
+int main(void) {
+    // Example usage of timeseries library functions
+    Timeseries *ts = ts_create("example_ts");
+    // Use timeseries functions...
+    ts_destroy(ts);
+    return 0;
+}
+
+```
+
+Build it linking the library
+
+```bash
+gcc -o my_project main.c -I/path/to/timeseries/include -L/path/to/timeseries -ltimeseries
+```
+
+#### Quickstart
+
 ```c
 #include "timeseries.h"
 
@@ -54,7 +86,7 @@ int main() {
     Record r;
     int result = ts_find_record(&ts, 1710033422047657984, &r);
     if (result == 0) {
-        printf("Record found: timestamp=%" PRIu64 ", value=%.2f\n", r.timestamp, r.value);
+        printf("Record found: timestamp=%lu, value=%.2lf\n", r.timestamp, r.value);
     } else {
         printf("Record not found.\n");
     }

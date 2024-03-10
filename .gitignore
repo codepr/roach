@@ -1,5 +1,6 @@
 *.d
 *.o
+*.so
 *.ko
 *.obj
 *.elf
@@ -19,3 +20,4 @@ logs
 tags
 build
 roach
+server

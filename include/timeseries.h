@@ -28,13 +28,14 @@ typedef struct record {
     int is_set;
 } Record;
 
-size_t ts_record_timestamp(const uint8_t *buf);
+extern size_t ts_record_timestamp(const uint8_t *buf);
 
-size_t ts_record_write(const Record *r, uint8_t *buf);
+extern size_t ts_record_write(const Record *r, uint8_t *buf);
 
-size_t ts_record_read(Record *r, const uint8_t *buf);
+extern size_t ts_record_read(Record *r, const uint8_t *buf);
 
-size_t ts_record_batch_write(const Record *r[], uint8_t *buf, size_t count);
+extern size_t ts_record_batch_write(const Record *r[], uint8_t *buf,
+                                    size_t count);
 
 typedef VEC(Record) Points;
 
@@ -70,29 +71,29 @@ typedef struct timeseries {
     size_t partition_nr;
 } Timeseries;
 
-int ts_init(Timeseries *ts);
+extern int ts_init(Timeseries *ts);
 
-void ts_destroy(Timeseries *ts);
+extern void ts_destroy(Timeseries *ts);
 
-int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
+extern int ts_set_record(Timeseries *ts, uint64_t timestamp, double_t value);
 
-int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r);
+extern int ts_find_record(const Timeseries *ts, uint64_t timestamp, Record *r);
 
-int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p);
+extern int ts_range(const Timeseries *ts, uint64_t t0, uint64_t t1, Points *p);
 
-void ts_print(const Timeseries *ts);
+extern void ts_print(const Timeseries *ts);
 
 typedef struct timeseries_db {
     char data_path[DATA_PATH_SIZE];
 } Timeseries_DB;
 
-Timeseries_DB *tsdb_init(const char *data_path);
+extern Timeseries_DB *tsdb_init(const char *data_path);
 
-void tsdb_close(Timeseries_DB *tsdb);
+extern void tsdb_close(Timeseries_DB *tsdb);
 
-Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
-                      int64_t retention);
+extern Timeseries *ts_create(const Timeseries_DB *tsdb, const char *name,
+                             int64_t retention);
 
-Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name);
+extern Timeseries *ts_get(const Timeseries_DB *tsdb, const char *name);
 
 #endif
