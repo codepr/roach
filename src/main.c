@@ -265,9 +265,12 @@ int main(void) {
 
     /* tsdb_close(db); */
 
-    Token *tokens = tokenize("TS.INSERT temperatures 0 98");
-    AST_Node *ast = parse(tokens, 4);
+    Token *tokens = tokenize("TS.QUERY RANGE temperatures 12 24");
+    AST_Node *ast = parse(tokens, 5);
     print_ast(ast);
+    Command cmd = parse_ast(ast);
+    printf("%s %lu %lu\n", cmd.query.ts_name, cmd.query.start_ts,
+           cmd.query.end_ts);
     ast_free(ast);
 
     return 0;

@@ -1,9 +1,11 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
+#include "timeseries.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #define METRIC_MAX_LEN 1 << 9
 
@@ -55,9 +57,50 @@ typedef struct ast_node {
     struct ast_node *right;
 } AST_Node;
 
+// Breaks the line into tokens based on spaces
 Token *tokenize(const char *input);
+
+// Parses an array of tokens into an AST
 AST_Node *parse(Token *tokens, size_t len);
+
+// Prints an AST pre-order
 void print_ast(AST_Node *node);
+
+// Frees memory of an AST
 void ast_free(AST_Node *node);
+
+typedef enum { CMD_CREATE, CMD_INSERT, CMD_QUERY } Command_Type;
+
+typedef struct command_create {
+    int is_db;
+    char name[64];
+    uint64_t retention;
+    Duplication_Policy policy;
+} Command_Create;
+
+typedef struct command_insert {
+    char ts_name[64];
+    uint64_t timestamp;
+    double_t value;
+} Command_Insert;
+
+typedef struct command_query {
+    char ts_name[64];
+    int range;
+    uint64_t start_ts;
+    uint64_t end_ts;
+} Command_Query;
+
+typedef struct command {
+    Command_Type type;
+    union {
+        Command_Create create;
+        Command_Insert insert;
+        Command_Query query;
+    };
+
+} Command;
+
+Command parse_ast(AST_Node *root);
 
 #endif

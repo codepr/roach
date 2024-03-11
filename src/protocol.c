@@ -170,3 +170,78 @@ void print_ast(AST_Node *node) {
     print_ast(node->right);
     print_ast(node->left);
 }
+
+static void traverse_ast(AST_Node *node, Command *cmd) {
+    if (!node)
+        return;
+
+    switch (node->type) {
+    case NODE_DB_CREATE:
+    case NODE_TS_CREATE:
+        cmd->create.is_db = node->type == NODE_DB_CREATE;
+        break;
+    case NODE_TS_MODIFIER:
+        cmd->query.range = strncmp(node->value, "RANGE", 5) == 0;
+        break;
+    case NODE_IDENTIFIER:
+        switch (cmd->type) {
+        case CMD_CREATE:
+            snprintf(cmd->create.name, sizeof(cmd->create.name), "%s",
+                     node->value);
+            break;
+        case CMD_INSERT:
+            snprintf(cmd->insert.ts_name, sizeof(cmd->insert.ts_name), "%s",
+                     node->value);
+            break;
+        case CMD_QUERY:
+            snprintf(cmd->query.ts_name, sizeof(cmd->query.ts_name), "%s",
+                     node->value);
+            break;
+        }
+        break;
+    case NODE_LITERAL:
+        switch (cmd->type) {
+        case CMD_CREATE:
+            if (cmd->create.is_db == 0) {
+                cmd->create.retention = atoll(node->value);
+                cmd->create.policy = DP_IGNORE;
+            }
+            break;
+        case CMD_INSERT:
+            if (cmd->insert.timestamp == 0) {
+                cmd->insert.timestamp = atoll(node->value);
+            } else {
+                char *ptr;
+                double_t ret = strtold(node->value, &ptr);
+                cmd->insert.value = ret;
+            }
+            break;
+        case CMD_QUERY:
+            if (cmd->query.start_ts == 0 && cmd->query.range == 0) {
+                cmd->query.start_ts = atoll(node->value);
+                cmd->query.end_ts = cmd->query.start_ts;
+            } else if (cmd->query.start_ts == 0) {
+                cmd->query.start_ts = atoll(node->value);
+            } else {
+                cmd->query.end_ts = atoll(node->value);
+            }
+            break;
+        }
+    default:
+        break;
+    }
+
+    traverse_ast(node->right, cmd);
+    traverse_ast(node->left, cmd);
+}
+
+Command parse_ast(AST_Node *root) {
+    Command cmd = {0};
+    memset(&cmd, 0x00, sizeof(cmd));
+    cmd.type = root->type == NODE_DB_CREATE || root->type == NODE_TS_CREATE
+                   ? CMD_CREATE
+               : root->type == NODE_TS_INSERT ? CMD_INSERT
+                                              : CMD_QUERY;
+    traverse_ast(root, &cmd);
+    return cmd;
+}
