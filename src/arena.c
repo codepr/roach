@@ -32,12 +32,14 @@ static void *arena_alloc_aligned(Arena *a, size_t size, size_t alignment) {
 
     return ptr;
 }
+
 void *arena_alloc(size_t size, void *context) {
     if (!size)
         return 0;
 
     return arena_alloc_aligned((Arena *)context, size, DEFAULT_ALIGNMENT);
 }
+
 void arena_free(size_t size, void *ptr, void *context) {
     (void)ptr;
     (void)size;

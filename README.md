@@ -77,6 +77,12 @@ Build it linking the library
 gcc -o my_project main.c -I/path/to/timeseries/include -L/path/to/timeseries -ltimeseries
 ```
 
+To run it
+
+```bash
+LD_LIBRARY_PATH=/path/to/timeseries.so ./my_project
+```
+
 #### Quickstart
 
 ```c

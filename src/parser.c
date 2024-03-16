@@ -239,7 +239,11 @@ Statement_Insert parse_insert(Token *tokens, size_t token_count) {
             snprintf(insert.db_name, sizeof(insert.db_name), "%s",
                      tokens[i].value);
         } else if (tokens[i].type == TOKEN_TIMESTAMP) {
-            insert.records[j].timestamp = atoll(tokens[i].value);
+            // Crude check for empty timestamp
+            if (tokens[i].value[0] == '*')
+                insert.records[j].timestamp = -1;
+            else
+                insert.records[j].timestamp = atoll(tokens[i].value);
         } else if (tokens[i].type == TOKEN_LITERAL) {
             insert.records[j++].value = strtod(tokens[i].value, &endptr);
         }
@@ -315,11 +319,11 @@ Statement_Select parse_select(Token *tokens, size_t token_count) {
             break;
         case TOKEN_AGGREGATE_FN:
             if (strncmp(tokens[i].value, "AVG", 3) == 0)
-                select.af = AF_AVG;
+                select.af = AFN_AVG;
             else if (strncmp(tokens[i].value, "MIN", 3) == 0)
-                select.af = AF_MIN;
+                select.af = AFN_MIN;
             else if (strncmp(tokens[i].value, "MAX", 3) == 0)
-                select.af = AF_MAX;
+                select.af = AFN_MAX;
             break;
         default:
             break;

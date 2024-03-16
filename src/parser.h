@@ -79,7 +79,7 @@ typedef struct {
 } Token;
 
 // Define aggregate function types
-typedef enum { AF_AVG, AF_MIN, AF_MAX } Aggregate_Function;
+typedef enum { AFN_AVG, AFN_MIN, AFN_MAX } Aggregate_Function;
 
 // Define operator types
 typedef enum { OP_EQ, OP_NE, OP_GE, OP_GT, OP_LE, OP_LT } Operator;
@@ -109,7 +109,7 @@ typedef struct {
 
 // Define a pair (timestamp, value) for INSERT statements
 typedef struct {
-    uint64_t timestamp;
+    int64_t timestamp;
     double_t value;
 } Create_Record;
 

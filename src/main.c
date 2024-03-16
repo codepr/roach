@@ -1,7 +1,8 @@
 #include "commit_log.h"
 #include "logging.h"
+#include "parser.h"
 #include "persistent_index.h"
-#include "protocol.h"
+#include "server.h"
 #include "timeseries.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -265,13 +266,50 @@ int main(void) {
 
     /* tsdb_close(db); */
 
-    Token *tokens = tokenize("TS.QUERY RANGE temperatures 12 24");
-    AST_Node *ast = parse(tokens, 5);
-    print_ast(ast);
-    Command cmd = parse_ast(ast);
-    printf("%s %lu %lu\n", cmd.query.ts_name, cmd.query.start_ts,
-           cmd.query.end_ts);
-    ast_free(ast);
+    size_t total_tokens = 0;
+    Token *tokens = tokenize("CREATE temperatures INTO db_test", &total_tokens);
+
+    Statement_Create create = parse_create(tokens, total_tokens);
+
+    print_create(&create);
+    printf("\n");
+
+    total_tokens = 0;
+
+    tokens = tokenize(
+        "INSERT temperatures INTO db_test 12, 98.2, 15, 96.2, 18, 99.1 ",
+        &total_tokens);
+
+    Statement_Insert insert = parse_insert(tokens, total_tokens);
+
+    print_insert(&insert);
+    printf("\n");
+
+    total_tokens = 0;
+
+    tokens = tokenize("SELECT temperatures FROM test_db RANGE 10 TO 45 "
+                      "WHERE value > 67.8 AGGREGATE AVG BY 3600",
+                      &total_tokens);
+
+    Statement_Select select = parse_select(tokens, total_tokens);
+
+    print_select(&select);
+    /* printf("SELECT\n\t%s\nFROM\n\t%s\nRANGE\n\t%li TO %li\nWHERE\n\t%s %i "
+     */
+    /*        "%.2lf\nAGGREGATE\n\t%i\nBY\n\t%lu\n", */
+    /*        select.ts_name, select.db_name, select.start_time,
+     * select.end_time, */
+    /*        select.where.key, select.where.operator, select.where.value, */
+    /*        select.af, select.interval); */
+
+    /* AST_Node *ast = parse(tokens, 5); */
+    /* print_ast(ast); */
+    /* Command cmd = parse_ast(ast); */
+    /* printf("%s %lu %lu\n", cmd.query.ts_name, cmd.query.start_ts, */
+    /*        cmd.query.end_ts); */
+    /* ast_free(ast); */
+
+    roachdb_server_run("127.0.0.1", 17678);
 
     return 0;
 }
