@@ -6,7 +6,7 @@ LIB_SOURCES = src/timeseries.c src/partition.c src/wal.c src/disk_io.c src/binar
 LIB_OBJECTS = $(LIB_SOURCES:.c=.o)
 LIB_PERSISTENCE = logdata
 
-SERVER_SOURCES = src/main.c src/protocol.c src/server.c src/ev.h src/ev_tcp.h
+SERVER_SOURCES = src/main.c src/parser.c src/server.c src/ev.h src/ev_tcp.h
 SERVER_OBJECTS = $(SERVER_SOURCES:.c=.o)
 SERVER_EXECUTABLE = server
 
