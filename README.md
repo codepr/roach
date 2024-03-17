@@ -122,3 +122,58 @@ int main() {
 }
 
 ```
+
+### Roach server draft
+
+Event based server (rely on [ev](https://github.com/codepr/ev.git) at least
+initially), TCP as the main transport protocol, text-based custom protocol
+inspired by RESP but simpler.
+
+#### Simple query language
+
+Definition of a simple, text-based format for clients to interact with the
+server, allowing them to send commands and receive responses.
+
+##### Basic outline
+
+- **Text-Based Format:** Use a text-based format where each command and
+  response is represented as a single line of text.
+- **Commands:** Define a set of commands that clients can send to the server to
+  perform various operations such as inserting data, querying data, and
+  managing the database.
+- **Responses:** Define the format of responses that the server sends back to
+  clients after processing commands. Responses should provide relevant
+  information or acknowledge the completion of the requested operation.
+
+##### Core commands
+
+Define the basic operations in a SQL-like query language
+
+- **CREATE** creates a database or a timeseries
+  `CREATE <database name>`
+  `CREATE <timeseries name> INTO <database name> [<retention period>] [<duplication policy>]`
+
+- **INSERT** insertion of point(s) in a timeseries
+  `INSERT <timeseries name> INTO <database name> <timestamp | *> <value>, ...`
+
+- **SELECT** query a timeseries, selection of point(s) and aggregations
+  `SELECT <timeseries name> FROM <database name> RANGE <start_timestamp> TO <end_timestamp> WHERE value [>|<|=|<=|>=|!=] <literal> AGGREGATE [AVG|MIN|MAX] BY <literal>`
+
+- **DELETE** delete a timeseries or a database
+  `DELETE <database name>`
+  `DELETE <timeseries name> FROM <database name>`
+
+##### Flow:
+
+1. **Client Sends Command:** Clients send commands to the server in the
+       specified text format.
+
+2. **Server Parses Command:** The server parses the received command and
+       executes the corresponding operation on the timeseries database.
+
+3. **Server Sends Response:** After processing the command, the server sends a
+       response back to the client indicating the result of the operation or
+       providing requested data.
+
+4. **Client Processes Response:** Clients receive and process the response from
+       the server, handling success or error conditions accordingly.

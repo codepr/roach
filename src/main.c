@@ -325,7 +325,7 @@ int main(void) {
     /*                                  {.timestamp = 1982398, .value =
      * 0.7227}}}; */
 
-    /* roachdb_server_run("127.0.0.1", 17678); */
+    roachdb_server_run("127.0.0.1", 17678);
 
     return 0;
 }

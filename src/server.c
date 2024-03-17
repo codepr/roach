@@ -4,6 +4,7 @@
 #include "ev_tcp.h"
 #include "logging.h"
 #include "parser.h"
+#include "protocol.h"
 #include "server.h"
 #include "timeseries.h"
 
@@ -59,9 +60,8 @@ static void execute_statement(Statement *statement) {
             } else {
                 for (size_t i = 0; i < vec_size(coll); i++) {
                     Record r = vec_at(coll, i);
-                    log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f }", r.timestamp,
-                             r.tv.tv_sec, r.tv.tv_nsec, r.value);
-    
+                    log_info(" %lu {.sec: %lu, .nsec: %lu .value: %.02f }",
+                             r.timestamp, r.tv.tv_sec, r.tv.tv_nsec, r.value);
                 }
             }
         }
@@ -92,22 +92,41 @@ static void on_write(ev_tcp_handle *client) {
 static void on_data(ev_tcp_handle *client) {
     if (client->buffer.size == 0)
         return;
-
-    char *line_start = client->buffer.buf;
-    char *line_end;
-
-    while ((line_end = strstr(line_start, "\r\n")) != NULL) {
-        *line_end = '\0';
-        log_info("Line received %s", line_start);
-        // Line gets processed here
+    log_info("Data: %s", client->buffer.buf);
+    Request rq;
+    Response rs;
+    ssize_t n = decode_request((const uint8_t *)client->buffer.buf, &rq);
+    if (n < 0) {
+        log_error("Can't decode a request from data");
+        rs.type = STRING_RSP;
+        rs.string_response.rc = 1;
+        strncpy(rs.string_response.message, "Err", 4);
+        rs.string_response.length = 4;
+    } else {
         // Parse into Statement
         size_t total_tokens;
-        Token *tokens = tokenize(line_start, &total_tokens);
+        Token *tokens = tokenize(rq.query, &total_tokens);
         Statement statement = parse(tokens, total_tokens);
         // Execute it
         execute_statement(&statement);
-        line_start = line_end + 2;
+        rs.type = STRING_RSP;
+        rs.string_response.rc = 0;
+        strncpy(rs.string_response.message, "Ok", 3);
+        rs.string_response.length = 3;
     }
+
+    (void)encode_response(&rs, (uint8_t *)client->buffer.buf);
+    /* line_start = line_end + 2; */
+
+    /* char *line_start = client->buffer.buf; */
+    /* char *line_end; */
+
+    /* while ((line_end = strstr(line_start, "\r\n")) != NULL) { */
+    /*     *line_end = '\0'; */
+    /*     log_info("Line received %s", line_start); */
+    /*     // Line gets processed here */
+    /* } */
+    /* } */
 
     ev_tcp_queue_write(client);
 }
