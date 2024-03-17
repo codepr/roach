@@ -20,4 +20,6 @@ logs
 tags
 build
 roach
+roach-cli
+roach-server
 server

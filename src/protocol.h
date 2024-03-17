@@ -1,7 +1,6 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-#include "parser.h"
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -42,7 +41,7 @@ typedef enum { STRING_RSP, ARRAY_RSP } Response_Type;
  * Define a generic response which can either be a string response or an array
  * response for the time being
  */
-typedef struct {
+typedef struct response {
     Response_Type type;
     union {
         String_Response string_response;

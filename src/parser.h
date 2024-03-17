@@ -142,10 +142,10 @@ typedef struct {
 
 // Define statement types
 typedef enum {
-    STATEMENT_UNKNOW,
     STATEMENT_CREATE,
     STATEMENT_INSERT,
-    STATEMENT_SELECT
+    STATEMENT_SELECT,
+    STATEMENT_UNKNOWN
 } Statement_Type;
 
 // Define a generic statement

@@ -5,7 +5,7 @@ Small timeseries database written in C, designed to efficiently store and
 retrieve timestamped data records. Mostly to explore persistent log data
 structure applications.
 
-### Basics
+## Basics
 
 Still at a very early stage, the main concepts are
 
@@ -22,7 +22,7 @@ Still at a very early stage, the main concepts are
   log, providing durability and recovery in case of crashes or failures.
 
 
-### TODO
+## TODO
 
 - Duplicate points policy
 - CRC32 of records for data integrity
@@ -31,7 +31,7 @@ Still at a very early stage, the main concepts are
 - Schema definitions
 - Server: Text based protocol, a simplified SQL-like would be cool
 
-### Usage
+## Usage
 
 At the current stage, no server attached, just a tiny library with some crude APIs;
 
@@ -47,7 +47,7 @@ At the current stage, no server attached, just a tiny library with some crude AP
 
 Plus a few other helpers.
 
-#### As a library
+### As a library
 
 Build the `libtimeseries.so` first
 
@@ -83,7 +83,7 @@ To run it
 LD_LIBRARY_PATH=/path/to/timeseries.so ./my_project
 ```
 
-#### Quickstart
+### Quickstart
 
 ```c
 #include "timeseries.h"
@@ -123,18 +123,18 @@ int main() {
 
 ```
 
-### Roach server draft
+## Roach server draft
 
 Event based server (rely on [ev](https://github.com/codepr/ev.git) at least
 initially), TCP as the main transport protocol, text-based custom protocol
 inspired by RESP but simpler.
 
-#### Simple query language
+### Simple query language
 
 Definition of a simple, text-based format for clients to interact with the
 server, allowing them to send commands and receive responses.
 
-##### Basic outline
+#### Basic outline
 
 - **Text-Based Format:** Use a text-based format where each command and
   response is represented as a single line of text.
@@ -145,25 +145,29 @@ server, allowing them to send commands and receive responses.
   clients after processing commands. Responses should provide relevant
   information or acknowledge the completion of the requested operation.
 
-##### Core commands
+#### Core commands
 
 Define the basic operations in a SQL-like query language
 
 - **CREATE** creates a database or a timeseries
+
   `CREATE <database name>`
   `CREATE <timeseries name> INTO <database name> [<retention period>] [<duplication policy>]`
 
 - **INSERT** insertion of point(s) in a timeseries
+
   `INSERT <timeseries name> INTO <database name> <timestamp | *> <value>, ...`
 
 - **SELECT** query a timeseries, selection of point(s) and aggregations
+
   `SELECT <timeseries name> FROM <database name> RANGE <start_timestamp> TO <end_timestamp> WHERE value [>|<|=|<=|>=|!=] <literal> AGGREGATE [AVG|MIN|MAX] BY <literal>`
 
 - **DELETE** delete a timeseries or a database
+
   `DELETE <database name>`
   `DELETE <timeseries name> FROM <database name>`
 
-##### Flow:
+#### Flow:
 
 1. **Client Sends Command:** Clients send commands to the server in the
        specified text format.

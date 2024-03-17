@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include <stdio.h>
 
 static ssize_t encode_string(uint8_t *dst, const char *src, size_t length) {
     size_t i = 0, j = 0;

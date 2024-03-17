@@ -333,7 +333,7 @@ Statement_Select parse_select(Token *tokens, size_t token_count) {
 }
 
 Statement parse(Token *tokens, size_t token_count) {
-    Statement statement = {.type = STATEMENT_UNKNOW};
+    Statement statement = {.type = STATEMENT_UNKNOWN};
 
     switch (tokens[0].type) {
     case TOKEN_CREATE:
