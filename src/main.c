@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "parser.h"
 #include "persistent_index.h"
+#include "protocol.h"
 #include "server.h"
 #include "timeseries.h"
 #include <stdio.h>
@@ -294,22 +295,37 @@ int main(void) {
     Statement_Select select = parse_select(tokens, total_tokens);
 
     print_select(&select);
-    /* printf("SELECT\n\t%s\nFROM\n\t%s\nRANGE\n\t%li TO %li\nWHERE\n\t%s %i "
+
+    uint8_t dst[64];
+    Response rs = {.type = STRING_RSP,
+                   .string_response = {.length = 3, .rc = 0, .message = "Ok!"}};
+    encode_response(&rs, &dst[0]);
+    printf("%s", dst);
+    Response rsb;
+    decode_response(&dst[0], &rsb);
+    printf("(%i) %s (%lu)\n", rsb.type, rsb.string_response.message,
+           rsb.string_response.length);
+
+    Request rq = {.length = 36,
+                  .query = "SELECT temp FROM test RANGE 10 TO 45"};
+    encode_request(&rq, &dst[0]);
+    printf("%s", dst);
+
+    Request rqb;
+    decode_request(&dst[0], &rqb);
+    printf("%s (%lu)\n", rqb.query, rqb.length);
+    /* Select_Response r = {.length = 2, */
+    /*                      .db_name = (String_View){.p = "test-db", .length
+     * = 8}, */
+    /*                      .ts_name = (String_View){.p = "test-ts", .length
+     * = 8}, */
+    /*                      .records = {{.timestamp = 1982398, .value =
+     * 0.7227},
      */
-    /*        "%.2lf\nAGGREGATE\n\t%i\nBY\n\t%lu\n", */
-    /*        select.ts_name, select.db_name, select.start_time,
-     * select.end_time, */
-    /*        select.where.key, select.where.operator, select.where.value, */
-    /*        select.af, select.interval); */
+    /*                                  {.timestamp = 1982398, .value =
+     * 0.7227}}}; */
 
-    /* AST_Node *ast = parse(tokens, 5); */
-    /* print_ast(ast); */
-    /* Command cmd = parse_ast(ast); */
-    /* printf("%s %lu %lu\n", cmd.query.ts_name, cmd.query.start_ts, */
-    /*        cmd.query.end_ts); */
-    /* ast_free(ast); */
-
-    roachdb_server_run("127.0.0.1", 17678);
+    /* roachdb_server_run("127.0.0.1", 17678); */
 
     return 0;
 }

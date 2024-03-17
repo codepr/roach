@@ -61,7 +61,6 @@ static Token *tokenize_create(Lexer *l, size_t *token_count) {
     while (l->length > 0 && ++i) {
         token = lexer_next(l);
 
-        printf("%s (%lu)\n", token.p, token.length);
         if (strncmp(token.p, "INTO", token.length) == 0) {
             tokens[i].type = TOKEN_INTO;
             token = lexer_next(l);
