@@ -61,4 +61,7 @@ ssize_t encode_response(const Response *r, uint8_t *dst);
 // Decode a response from an array of bytes into a Response struct
 ssize_t decode_response(const uint8_t *data, Response *dst);
 
+// Free an array response
+void free_response(Response *rs);
+
 #endif // PROTOCOL_H

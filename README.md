@@ -152,6 +152,7 @@ Define the basic operations in a SQL-like query language
 - **CREATE** creates a database or a timeseries
 
   `CREATE <database name>`
+  
   `CREATE <timeseries name> INTO <database name> [<retention period>] [<duplication policy>]`
 
 - **INSERT** insertion of point(s) in a timeseries

@@ -1,4 +1,5 @@
 #include "disk_io.h"
+#include "logging.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,8 +23,7 @@ FILE *open_file(const char *path, const char *ext, const char *modes) {
 
     FILE *fp = fopen(path_buf, modes);
     if (!fp) {
-        fprintf(stderr, "Cannot open %s (%s): %s", path_buf, modes,
-                strerror(errno));
+        log_error("Cannot open %s (%s): %s", path_buf, modes, strerror(errno));
         return NULL;
     }
     return fp;
@@ -45,7 +45,7 @@ ssize_t get_file_size(FILE *fp, long offset) {
 int buf_read_file(FILE *fp, Buffer *buffer) {
     /* Get the buffer size */
     if (fseek(fp, 0, SEEK_END) < 0) {
-        perror("fseek");
+        log_error("Error reading file: fseek %s", strerror(errno));
         return -1;
     }
 

@@ -1,6 +1,7 @@
 #include "wal.h"
 #include "binary.h"
 #include "disk_io.h"
+#include "logging.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -22,7 +23,7 @@ int wal_init(Wal *w, const char *path, uint64_t base_timestamp, int main) {
     return 0;
 
 errdefer:
-    fprintf(stderr, "WAL init %s: %s", path, strerror(errno));
+    log_error("WAL init %s: %s", path, strerror(errno));
     return -1;
 }
 
@@ -52,7 +53,7 @@ int wal_from_disk(Wal *w, const char *path, uint64_t base_timestamp, int main) {
     return 0;
 
 errdefer:
-    fprintf(stderr, "WAL from disk %s: %s", path, strerror(errno));
+    log_error("WAL from disk %s: %s", path, strerror(errno));
     return -1;
 }
 

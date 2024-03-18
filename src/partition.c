@@ -86,8 +86,7 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
                     BATCH_SIZE);
                 err = commit_records_to_log(p, bufptr, len);
                 if (err < 0)
-                    fprintf(stderr, "batch write failed: %s\n",
-                            strerror(errno));
+                    log_error("batch write failed: %s", strerror(errno));
                 bufptr += len;
                 batch_size = 0;
             }
@@ -102,9 +101,8 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
             remaining_records);
         err = commit_records_to_log(p, bufptr, len);
         if (err < 0)
-            fprintf(stderr,
-                    "Error writing remaining records to commit log: %s\n",
-                    strerror(errno));
+            log_error("Error writing remaining records to commit log: %s",
+                      strerror(errno));
     }
 
     // Set base nanoseconds for the commit log

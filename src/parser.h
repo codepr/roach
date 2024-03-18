@@ -30,53 +30,7 @@ String_View string_view_from_cstring(const char *src);
 // Function to chop a string view by a delimiter and return the remaining view
 String_View string_view_chop_by_delim(String_View *view, const char delim);
 
-/*
- * Basic lexer, breaks down the input string (in the form of a String_View)
- * splitting it by space or ',' to allow the extraction of tokens.
- */
-typedef struct {
-    String_View view;
-    size_t length;
-} Lexer;
-
-// Function to get the next token from the lexer
-String_View lexer_next(Lexer *l);
-
-// Function to get the next token by a separator from the lexer
-String_View lexer_next_by_sep(Lexer *l, char sep);
-
-// Function to peek at the next token from the lexer without consuming it
-String_View lexer_peek(Lexer *l);
-
-// Define token types
-typedef enum {
-    TOKEN_CREATE,
-    TOKEN_INSERT,
-    TOKEN_INTO,
-    TOKEN_TIMESTAMP,
-    TOKEN_LITERAL,
-    TOKEN_SELECT,
-    TOKEN_FROM,
-    TOKEN_AT,
-    TOKEN_RANGE,
-    TOKEN_TO,
-    TOKEN_WHERE,
-    TOKEN_OPERATOR_EQ,
-    TOKEN_OPERATOR_NE,
-    TOKEN_OPERATOR_LE,
-    TOKEN_OPERATOR_LT,
-    TOKEN_OPERATOR_GE,
-    TOKEN_OPERATOR_GT,
-    TOKEN_AGGREGATE,
-    TOKEN_AGGREGATE_FN,
-    TOKEN_BY
-} Token_Type;
-
-// Define token structure
-typedef struct {
-    Token_Type type;
-    char value[IDENTIFIER_LENGTH];
-} Token;
+typedef struct token Token;
 
 // Define aggregate function types
 typedef enum { AFN_AVG, AFN_MIN, AFN_MAX } Aggregate_Function;
@@ -92,13 +46,13 @@ typedef enum { OP_EQ, OP_NE, OP_GE, OP_GT, OP_LE, OP_LT } Operator;
  * - With an aggregation function
  * - With an interval to aggregate on
  */
-enum Select_Mask {
+typedef enum Select_Mask {
     SM_SINGLE = 0x01,
     SM_RANGE = 0x02,
     SM_WHERE = 0x04,
     SM_AGGREGATE = 0x08,
     SM_BY = 0x10
-};
+} Select_Mask;
 
 // Define structure for CREATE statement
 typedef struct {
@@ -137,11 +91,12 @@ typedef struct {
     Aggregate_Function af;
     Statement_Where where;
     uint64_t interval;
-    uint8_t mask;
+    Select_Mask mask;
 } Statement_Select;
 
 // Define statement types
 typedef enum {
+    STATEMENT_EMPTY,
     STATEMENT_CREATE,
     STATEMENT_INSERT,
     STATEMENT_SELECT,
@@ -158,30 +113,11 @@ typedef struct {
     };
 } Statement;
 
-// Function to tokenize input string into an array of tokens
-Token *tokenize(const char *input, size_t *token_count);
-
-// Function to parse CREATE statement from tokens
-Statement_Create parse_create(Token *tokens, size_t token_count);
-
-// Function to parse INSERT statement from tokens
-Statement_Insert parse_insert(Token *tokens, size_t token_count);
-
-// Function to parse SELECT statement from tokens
-Statement_Select parse_select(Token *tokens, size_t token_count);
-
 // Parse a statement
-Statement parse(Token *tokens, size_t token_count);
+Statement parse(const char *input);
 
 // Debug helpers
 
-// Function to print CREATE statement
-void print_create(Statement_Create *create);
-
-// Function to print INSERT statement
-void print_insert(Statement_Insert *insert);
-
-// Function to print SELECT statement
-void print_select(Statement_Select *select);
+void print_statement(const Statement *statement);
 
 #endif // PARSER_H

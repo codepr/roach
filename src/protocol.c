@@ -189,3 +189,5 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
 
     return length;
 }
+
+void free_response(Response *rs) { free(rs->array_response.records); }

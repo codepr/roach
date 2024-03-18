@@ -93,7 +93,7 @@ void client_disconnect(Client *c) { close(c->fd); }
 
 int client_send_command(Client *c, char *buf) {
     uint8_t data[BUFSIZE];
-    Request rq = {.length = strlen(buf)};
+    Request rq = {.length = strlen(buf) - 1};
     snprintf(rq.query, sizeof(rq.query), "%s", buf);
     ssize_t n = encode_request(&rq, data);
     if (n < 0)

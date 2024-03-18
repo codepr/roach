@@ -267,34 +267,20 @@ int main(void) {
 
     /* tsdb_close(db); */
 
-    size_t total_tokens = 0;
-    Token *tokens = tokenize("CREATE temperatures INTO db_test", &total_tokens);
+    Statement s = parse("CREATE timeseries");
 
-    Statement_Create create = parse_create(tokens, total_tokens);
-
-    print_create(&create);
+    print_statement(&s);
     printf("\n");
 
-    total_tokens = 0;
+    s = parse("INSERT temperatures INTO db_test 12, 98.2, 15, 96.2, 18, 99.1 ");
 
-    tokens = tokenize(
-        "INSERT temperatures INTO db_test 12, 98.2, 15, 96.2, 18, 99.1 ",
-        &total_tokens);
-
-    Statement_Insert insert = parse_insert(tokens, total_tokens);
-
-    print_insert(&insert);
+    print_statement(&s);
     printf("\n");
 
-    total_tokens = 0;
+    s = parse("SELECT temperatures FROM test_db RANGE 10 TO 45 WHERE value > "
+              "67.8 AGGREGATE AVG BY 3600");
 
-    tokens = tokenize("SELECT temperatures FROM test_db RANGE 10 TO 45 "
-                      "WHERE value > 67.8 AGGREGATE AVG BY 3600",
-                      &total_tokens);
-
-    Statement_Select select = parse_select(tokens, total_tokens);
-
-    print_select(&select);
+    print_statement(&s);
 
     uint8_t dst[64];
     Response rs = {.type = STRING_RSP,
