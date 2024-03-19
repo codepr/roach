@@ -21,16 +21,22 @@ static Response execute_statement(const Statement *statement) {
 
     switch (statement->type) {
     case STATEMENT_CREATE:
-        if (statement->create.mask == 0)
+        if (statement->create.mask == 0) {
             db = tsdb_init(statement->create.db_name);
-        else
+        } else {
+            if (!db)
+                db = tsdb_init(statement->create.db_name);
+
             (void)ts_create(db, statement->create.ts_name, 0, DP_IGNORE);
+        }
         rs.type = STRING_RSP;
         rs.string_response.rc = 0;
         strncpy(rs.string_response.message, "Ok", 3);
         rs.string_response.length = 3;
         break;
     case STATEMENT_INSERT:
+        if (!db)
+            db = tsdb_init(statement->insert.db_name);
         ts = ts_get(db, statement->insert.ts_name);
         uint64_t timestamp = 0;
         for (size_t i = 0; i < statement->insert.record_len; ++i) {
@@ -47,6 +53,8 @@ static Response execute_statement(const Statement *statement) {
         rs.string_response.length = 3;
         break;
     case STATEMENT_SELECT:
+        if (!db)
+            db = tsdb_init(statement->insert.db_name);
         ts = ts_get(db, statement->select.ts_name);
         int err = 0;
         Points coll;
@@ -54,16 +62,21 @@ static Response execute_statement(const Statement *statement) {
 
         if (statement->select.mask & SM_SINGLE) {
             err = ts_find(ts, statement->select.start_time, &r);
-            if (err < 0)
+            if (err < 0) {
                 log_error("Couldn't find the record %lu",
                           statement->select.start_time);
-            else
+                rs.type = STRING_RSP;
+                rs.string_response.length = 9;
+                strncpy(rs.string_response.message, "Not found", 10);
+            } else {
                 log_info("Record found: %lu %.2lf", r.timestamp, r.value);
-            rs.array_response.length = 1;
-            rs.array_response.records =
-                calloc(1, sizeof(*rs.array_response.records));
-            rs.array_response.records[0].timestamp = r.timestamp;
-            rs.array_response.records[0].value = r.value;
+                rs.type = ARRAY_RSP;
+                rs.array_response.length = 1;
+                rs.array_response.records =
+                    calloc(1, sizeof(*rs.array_response.records));
+                rs.array_response.records[0].timestamp = r.timestamp;
+                rs.array_response.records[0].value = r.value;
+            }
         } else if (statement->select.mask & SM_RANGE) {
             err = ts_range(ts, statement->select.start_time,
                            statement->select.end_time, &coll);
@@ -112,7 +125,6 @@ static void on_write(ev_tcp_handle *client) {
 static void on_data(ev_tcp_handle *client) {
     if (client->buffer.size == 0)
         return;
-    log_info("Data: %s", client->buffer.buf);
     Request rq;
     Response rs;
     ssize_t n = decode_request((const uint8_t *)client->buffer.buf, &rq);
@@ -129,7 +141,12 @@ static void on_data(ev_tcp_handle *client) {
         rs = execute_statement(&statement);
     }
 
-    (void)encode_response(&rs, (uint8_t *)client->buffer.buf);
+    ev_tcp_zero_buffer(client);
+
+    n = encode_response(&rs, (uint8_t *)client->buffer.buf);
+    client->buffer.size = n;
+    log_info("Data: %s", client->buffer.buf);
+    free_response(&rs);
 
     ev_tcp_queue_write(client);
 }
@@ -148,7 +165,6 @@ static void on_connection(ev_tcp_handle *server) {
 }
 
 int roachdb_server_run(const char *host, int port) {
-    db = tsdb_init("testdb");
     ev_context *ctx = ev_get_context();
     ev_tcp_server server;
     ev_tcp_server_init(&server, ctx, BACKLOG);

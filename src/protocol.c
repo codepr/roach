@@ -62,7 +62,7 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
     // Array response
     dst[0] = '#';
     ssize_t i = 1;
-    size_t length = r->array_response.length, j = 0;
+    size_t j = 0;
 
     // Array length
     size_t n = snprintf((char *)dst + i, 20, "%lu", r->array_response.length);
@@ -73,7 +73,7 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
     dst[i++] = '\n';
 
     // Records
-    while (length-- > 0) {
+    while (j < r->array_response.length) {
         // Timestamp
         dst[i++] = ':';
         n = snprintf((char *)dst + i, 21, "%lu",
@@ -83,17 +83,13 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
         dst[i++] = '\n';
         // Value
         dst[i++] = ';';
-        n = snprintf((char *)dst + i, 21, "%.20lf",
+        n = snprintf((char *)dst + i, 21, "%lf",
                      r->array_response.records[j].value);
         i += n;
         dst[i++] = '\r';
         dst[i++] = '\n';
         j++;
     }
-
-    // CRLF
-    dst[i++] = '\r';
-    dst[i++] = '\n';
 
     return i;
 }
@@ -128,7 +124,7 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
     uint8_t byte = *ptr;
     ssize_t length = 0;
 
-    dst->type = byte == '*' ? ARRAY_RSP : STRING_RSP;
+    dst->type = byte == '#' ? ARRAY_RSP : STRING_RSP;
 
     switch (byte) {
     case '$':
@@ -136,8 +132,11 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
         // Treat error and common strings the same for now
         length = decode_string(ptr, dst);
         break;
-    case '*':
+    case '#':
+        ptr++;
+        length++;
         // Read length
+        dst->array_response.length = 0;
         while (*ptr != '\r' && *(ptr + 1) != '\n') {
             dst->array_response.length *= 10;
             dst->array_response.length += *ptr - '0';
@@ -166,7 +165,7 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
                 }
             } else {
                 // Value
-                uint8_t buf[20];
+                uint8_t buf[32];
                 size_t k = 0;
                 while (*ptr != '\r' && *(ptr + 1) != '\n') {
                     buf[k++] = *ptr;
@@ -190,4 +189,7 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
     return length;
 }
 
-void free_response(Response *rs) { free(rs->array_response.records); }
+void free_response(Response *rs) {
+    if (rs->type == ARRAY_RSP)
+        free(rs->array_response.records);
+}
