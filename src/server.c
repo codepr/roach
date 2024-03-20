@@ -11,7 +11,7 @@
 #define BACKLOG 128
 
 // testing dummy
-static Timeseries_DB *db;
+static Timeseries_DB *db = NULL;
 
 static Response execute_statement(const Statement *statement) {
     Response rs;
@@ -38,6 +38,8 @@ static Response execute_statement(const Statement *statement) {
         if (!db)
             db = tsdb_init(statement->insert.db_name);
         ts = ts_get(db, statement->insert.ts_name);
+        if (!ts)
+            goto errdefer;
         uint64_t timestamp = 0;
         for (size_t i = 0; i < statement->insert.record_len; ++i) {
             if (statement->insert.records[i].timestamp == -1) {
@@ -54,8 +56,12 @@ static Response execute_statement(const Statement *statement) {
         break;
     case STATEMENT_SELECT:
         if (!db)
-            db = tsdb_init(statement->insert.db_name);
+            db = tsdb_init(statement->select.db_name);
+
         ts = ts_get(db, statement->select.ts_name);
+        if (!ts)
+            goto errdefer;
+        ts_print(ts);
         int err = 0;
         Points coll;
         vec_new(coll);
@@ -65,9 +71,7 @@ static Response execute_statement(const Statement *statement) {
             if (err < 0) {
                 log_error("Couldn't find the record %lu",
                           statement->select.start_time);
-                rs.type = STRING_RSP;
-                rs.string_response.length = 9;
-                strncpy(rs.string_response.message, "Not found", 10);
+                goto errdefer;
             } else {
                 log_info("Record found: %lu %.2lf", r.timestamp, r.value);
                 rs.type = ARRAY_RSP;
@@ -104,6 +108,14 @@ static Response execute_statement(const Statement *statement) {
 
     if (ts)
         ts_close(ts);
+
+    return rs;
+
+errdefer:
+
+    rs.type = STRING_RSP;
+    rs.string_response.length = 9;
+    strncpy(rs.string_response.message, "Not found", 10);
 
     return rs;
 }

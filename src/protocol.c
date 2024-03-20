@@ -1,5 +1,6 @@
 #include "protocol.h"
 #include <stdio.h>
+#include <string.h>
 
 static ssize_t encode_string(uint8_t *dst, const char *src, size_t length) {
     size_t i = 0, j = 0;
@@ -120,8 +121,7 @@ static ssize_t decode_string(const uint8_t *ptr, Response *dst) {
 }
 
 ssize_t decode_response(const uint8_t *data, Response *dst) {
-    const uint8_t *ptr = data;
-    uint8_t byte = *ptr;
+    uint8_t byte = *data;
     ssize_t length = 0;
 
     dst->type = byte == '#' ? ARRAY_RSP : STRING_RSP;
@@ -130,54 +130,58 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
     case '$':
     case '!':
         // Treat error and common strings the same for now
-        length = decode_string(ptr, dst);
+        length = decode_string(data, dst);
         break;
     case '#':
-        ptr++;
+        data++;
         length++;
         // Read length
         dst->array_response.length = 0;
-        while (*ptr != '\r' && *(ptr + 1) != '\n') {
+        while (*data != '\r' && *(data + 1) != '\n') {
             dst->array_response.length *= 10;
-            dst->array_response.length += *ptr - '0';
-            ptr++;
+            dst->array_response.length += *data - '0';
+            data++;
             length++;
         }
 
         // Jump over \r\n
-        ptr += 2;
+        data += 2;
         length += 2;
 
         // Read records
         size_t j = 0;
         size_t total_records = dst->array_response.length;
+        uint8_t buf[32];
+        size_t k = 0;
         // TODO arena malloc here
         dst->array_response.records =
             malloc(total_records * sizeof(*dst->array_response.records));
         while (total_records-- > 0) {
             // Timestamp
-            if (*ptr++ == ':') {
-                while (*ptr != '\r' && *(ptr + 1) != '\n') {
-                    dst->array_response.records[j].timestamp *= 10;
-                    dst->array_response.records[j].timestamp += *ptr - '0';
-                    ptr++;
-                    length++;
-                }
-            } else {
-                // Value
-                uint8_t buf[32];
-                size_t k = 0;
-                while (*ptr != '\r' && *(ptr + 1) != '\n') {
-                    buf[k++] = *ptr;
-                    ptr++;
-                    length++;
-                }
-                char *end;
-                dst->array_response.records[j].value =
-                    strtod((char *)buf, &end);
-            }
+            if (*data++ != ':')
+                goto cleanup;
+
+            while (*data != '\r' && *(data + 1) != '\n' && length++)
+                buf[k++] = *data++;
+
+            dst->array_response.records[j].timestamp = atoll((const char *)buf);
+            memset(buf, 0x00, sizeof(buf));
+            k = 0;
+
+            // Skip CRLF + ;
+            data += 3;
+            length += 3;
+
+            // Value
+            while (*data != '\r' && *(data + 1) != '\n' && length++)
+                buf[k++] = *data++;
+
+            buf[k] = '\0';
+
+            dst->array_response.records[j].value = strtold((char *)buf, NULL);
+
             // Skip CRLF
-            ptr += 2;
+            data += 2;
             length += 2;
             j++;
         }
@@ -187,6 +191,10 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
     }
 
     return length;
+
+cleanup:
+    free(dst->array_response.records);
+    return -1;
 }
 
 void free_response(Response *rs) {
