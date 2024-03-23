@@ -2,7 +2,6 @@
 #include "binary.h"
 #include "disk_io.h"
 #include "logging.h"
-#include <assert.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <string.h>

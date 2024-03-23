@@ -103,11 +103,10 @@ static ssize_t decode_string(const uint8_t *ptr, Response *dst) {
     ptr++;
 
     // Read length
-    while (*ptr != '\r' && *(ptr + 1) != '\n') {
+    while (*ptr != '\r' && *(ptr + 1) != '\n' && n++) {
         dst->string_response.length *= 10;
         dst->string_response.length += *ptr - '0';
         ptr++;
-        n++;
     }
 
     // Move forward after CRLF
@@ -137,11 +136,10 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
         length++;
         // Read length
         dst->array_response.length = 0;
-        while (*data != '\r' && *(data + 1) != '\n') {
+        while (*data != '\r' && *(data + 1) != '\n' && length++) {
             dst->array_response.length *= 10;
             dst->array_response.length += *data - '0';
             data++;
-            length++;
         }
 
         // Jump over \r\n

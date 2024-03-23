@@ -164,21 +164,18 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
         } else if (strncmp(token.p, "AT", token.length) == 0) {
             tokens[i].type = TOKEN_AT;
             token = lexer_next(l);
-            int64_t num;
-            if (sscanf(token.p, "%li", &num) == 1)
+            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
         } else if (strncmp(token.p, "RANGE", token.length) == 0) {
             tokens[i].type = TOKEN_RANGE;
             token = lexer_next(l);
-            int64_t num;
-            if (sscanf(token.p, "%li", &num) == 1)
+            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "TO", token.length) == 0) {
             tokens[i].type = TOKEN_TO;
             token = lexer_next(l);
-            int64_t num;
-            if (sscanf(token.p, "%li", &num) == 1)
+            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "WHERE", token.length) == 0) {
@@ -192,8 +189,7 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
         } else if (strncmp(token.p, "BY", token.length) == 0) {
             tokens[i].type = TOKEN_BY;
             token = lexer_next(l);
-            uint64_t num;
-            if (sscanf(token.p, "%lu", &num) == 1)
+            if (sscanf(token.p, "%lu", &(uint64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else {
@@ -211,8 +207,7 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
                 tokens[i].type = TOKEN_OPERATOR_NE;
             }
             token = lexer_next(l);
-            uint64_t num;
-            if (sscanf(token.p, "%lu", &num) == 1)
+            if (sscanf(token.p, "%lu", &(uint64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
         }
     }

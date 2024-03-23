@@ -17,6 +17,7 @@ static Response execute_statement(const Statement *statement) {
     Response rs;
     Record r = {0};
     Timeseries *ts = NULL;
+    int err = 0;
     struct timespec tv;
 
     switch (statement->type) {
@@ -27,12 +28,17 @@ static Response execute_statement(const Statement *statement) {
             if (!db)
                 db = tsdb_init(statement->create.db_name);
 
-            (void)ts_create(db, statement->create.ts_name, 0, DP_IGNORE);
+            ts = ts_create(db, statement->create.ts_name, 0, DP_IGNORE);
         }
         rs.type = STRING_RSP;
-        rs.string_response.rc = 0;
-        strncpy(rs.string_response.message, "Ok", 3);
-        rs.string_response.length = 3;
+        rs.string_response.rc = err;
+        if (!ts) {
+            strncpy(rs.string_response.message, "Nok", 4);
+            rs.string_response.length = 4;
+        } else {
+            strncpy(rs.string_response.message, "Ok", 3);
+            rs.string_response.length = 3;
+        }
         break;
     case STATEMENT_INSERT:
         if (!db)
@@ -48,11 +54,18 @@ static Response execute_statement(const Statement *statement) {
             } else {
                 timestamp = statement->insert.records[i].timestamp;
             }
-            ts_insert(ts, timestamp, statement->insert.records[i].value);
+            err = ts_insert(ts, timestamp, statement->insert.records[i].value);
+            if (err < 0) {
+                rs.string_response.rc = err;
+                strncpy(rs.string_response.message, "Nok", 4);
+                rs.string_response.length = 4;
+            } else {
+                rs.string_response.rc = 0;
+                strncpy(rs.string_response.message, "Ok", 3);
+                rs.string_response.length = 3;
+            }
         }
-        rs.string_response.rc = 0;
-        strncpy(rs.string_response.message, "Ok", 3);
-        rs.string_response.length = 3;
+
         break;
     case STATEMENT_SELECT:
         if (!db)
