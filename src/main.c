@@ -267,30 +267,33 @@ int main(void) {
 
     /* tsdb_close(db); */
 
-    Statement s = parse("CREATE timeseries");
+    /* Statement s = parse("CREATE timeseries"); */
 
-    print_statement(&s);
-    printf("\n");
+    /* print_statement(&s); */
+    /* printf("\n"); */
 
-    s = parse("INSERT temperatures INTO db_test 12, 98.2, 15, 96.2, 18, 99.1 ");
+    /* s = parse("INSERT temperatures INTO db_test 12, 98.2, 15, 96.2, 18, 99.1
+     * "); */
 
-    print_statement(&s);
-    printf("\n");
+    /* print_statement(&s); */
+    /* printf("\n"); */
 
-    s = parse("SELECT temperatures FROM test_db RANGE 10 TO 45 WHERE value > "
-              "67.8 AGGREGATE AVG BY 3600");
+    /* s = parse("SELECT temperatures FROM test_db RANGE 10 TO 45 WHERE value >
+     * " */
+    /*           "67.8 AGGREGATE AVG BY 3600"); */
 
-    print_statement(&s);
+    /* print_statement(&s); */
 
     uint8_t dst[64];
-    Response rs = {.type = STRING_RSP,
-                   .string_response = {.length = 3, .rc = 0, .message = "Ok!"}};
-    encode_response(&rs, &dst[0]);
-    printf("%s", dst);
-    Response rsb;
-    decode_response(&dst[0], &rsb);
-    printf("(%i) %s (%lu)\n", rsb.type, rsb.string_response.message,
-           rsb.string_response.length);
+    /* Response rs = {.type = STRING_RSP, */
+    /*                .string_response = {.length = 3, .rc = 0, .message =
+     * "Ok!"}}; */
+    /* encode_response(&rs, &dst[0]); */
+    /* printf("%s", dst); */
+    /* Response rsb; */
+    /* decode_response(&dst[0], &rsb); */
+    /* printf("(%i) %s (%lu)\n", rsb.type, rsb.string_response.message, */
+    /*        rsb.string_response.length); */
 
     Request rq = {.length = 36,
                   .query = "SELECT temp FROM test RANGE 10 TO 45"};

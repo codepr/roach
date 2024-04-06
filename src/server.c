@@ -10,6 +10,16 @@
 
 #define BACKLOG 128
 
+#define add_string_response(resp, str, rc)                                     \
+    do {                                                                       \
+        (resp).type = STRING_RSP;                                              \
+        size_t length = strlen((str));                                         \
+        memset((resp).string_response.message, 0x00,                           \
+               sizeof((resp).string_response.message));                        \
+        strncpy((resp).string_response.message, (str), length);                \
+        (resp).string_response.length = length;                                \
+    } while (0)
+
 // testing dummy
 static Timeseries_DB *db = NULL;
 
@@ -24,28 +34,33 @@ static Response execute_statement(const Statement *statement) {
     case STATEMENT_CREATE:
         if (statement->create.mask == 0) {
             db = tsdb_init(statement->create.db_name);
+            if (!db)
+                goto err;
         } else {
             if (!db)
                 db = tsdb_init(statement->create.db_name);
 
+            if (!db)
+                goto err;
+
             ts = ts_create(db, statement->create.ts_name, 0, DP_IGNORE);
         }
-        rs.type = STRING_RSP;
-        rs.string_response.rc = err;
-        if (!ts) {
-            strncpy(rs.string_response.message, "Nok", 4);
-            rs.string_response.length = 4;
-        } else {
-            strncpy(rs.string_response.message, "Ok", 3);
-            rs.string_response.length = 3;
-        }
+        if (!ts)
+            goto err;
+        else
+            add_string_response(rs, "Ok", 0);
         break;
     case STATEMENT_INSERT:
         if (!db)
             db = tsdb_init(statement->insert.db_name);
+
+        if (!db)
+            goto err;
+
         ts = ts_get(db, statement->insert.ts_name);
         if (!ts)
-            goto errdefer;
+            goto err_not_found;
+
         uint64_t timestamp = 0;
         for (size_t i = 0; i < statement->insert.record_len; ++i) {
             if (statement->insert.records[i].timestamp == -1) {
@@ -54,16 +69,12 @@ static Response execute_statement(const Statement *statement) {
             } else {
                 timestamp = statement->insert.records[i].timestamp;
             }
+
             err = ts_insert(ts, timestamp, statement->insert.records[i].value);
-            if (err < 0) {
-                rs.string_response.rc = err;
-                strncpy(rs.string_response.message, "Nok", 4);
-                rs.string_response.length = 4;
-            } else {
-                rs.string_response.rc = 0;
-                strncpy(rs.string_response.message, "Ok", 3);
-                rs.string_response.length = 3;
-            }
+            if (err < 0)
+                goto err;
+            else
+                add_string_response(rs, "Ok", 0);
         }
 
         break;
@@ -71,10 +82,13 @@ static Response execute_statement(const Statement *statement) {
         if (!db)
             db = tsdb_init(statement->select.db_name);
 
+        if (!db)
+            goto err;
+
         ts = ts_get(db, statement->select.ts_name);
         if (!ts)
-            goto errdefer;
-        ts_print(ts);
+            goto err_not_found;
+
         int err = 0;
         Points coll;
         vec_new(coll);
@@ -84,7 +98,7 @@ static Response execute_statement(const Statement *statement) {
             if (err < 0) {
                 log_error("Couldn't find the record %lu",
                           statement->select.start_time);
-                goto errdefer;
+                goto err_not_found;
             } else {
                 log_info("Record found: %lu %.2lf", r.timestamp, r.value);
                 rs.type = ARRAY_RSP;
@@ -124,12 +138,13 @@ static Response execute_statement(const Statement *statement) {
 
     return rs;
 
-errdefer:
+err:
+    add_string_response(rs, "Err", err);
+    return rs;
 
-    rs.type = STRING_RSP;
-    rs.string_response.length = 9;
-    strncpy(rs.string_response.message, "Not found", 10);
+err_not_found:
 
+    add_string_response(rs, "Not found", err);
     return rs;
 }
 
