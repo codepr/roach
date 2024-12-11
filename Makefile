@@ -15,11 +15,11 @@ LIB_SOURCES = src/timeseries.c src/partition.c src/wal.c src/disk_io.c src/binar
 LIB_OBJECTS = $(LIB_SOURCES:.c=.o)
 LIB_PERSISTENCE = logdata
 
-SERVER_SOURCES = src/main.c src/parser.c src/protocol.c src/server.c src/ev.h src/ev_tcp.h
+SERVER_SOURCES = src/main.c src/parser.c src/protocol.c src/server.c
 SERVER_OBJECTS = $(SERVER_SOURCES:.c=.o)
 SERVER_EXECUTABLE = roach-server
 
-CLI_SOURCES = src/client.c src/roach_cli.c src/protocol.c src/ev.h src/ev_tcp.h
+CLI_SOURCES = src/client.c src/roach_cli.c src/protocol.c
 CLI_OBJECTS = $(CLI_SOURCES:.c=.o)
 CLI_EXECUTABLE = roach-cli
 
@@ -38,5 +38,5 @@ $(CLI_EXECUTABLE): $(CLI_OBJECTS)
 	$(CC) $(CFLAGS) -fPIC -c $< -o $@
 
 clean:
-	@rm -f $(LIB_OBJECTS) $(SERVER_OBJECTS) libtimeseries.so $(SERVER_EXECUTABLE)
+	@rm -f $(LIB_OBJECTS) $(SERVER_OBJECTS) $(CLI_OBJECTS) libtimeseries.so $(SERVER_EXECUTABLE) $(CLI_EXECUTABLE)
 	@rm -rf $(LIB_PERSISTENCE) 2> /dev/null

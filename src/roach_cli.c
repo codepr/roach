@@ -40,7 +40,7 @@ static void print_response(const Response *rs) {
         printf("%s\n", rs->string_response.message);
     } else {
         for (size_t i = 0; i < rs->array_response.length; ++i)
-            printf("%lu %.6f\n", rs->array_response.records[i].timestamp,
+            printf("%llu %.6f\n", rs->array_response.records[i].timestamp,
                    rs->array_response.records[i].value);
     }
 }
