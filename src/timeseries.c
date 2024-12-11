@@ -236,11 +236,11 @@ static int ts_chunk_set_record(Timeseries_Chunk *tc, uint64_t sec,
     return 0;
 }
 
-static int ts_chunk_from_disk(Timeseries_Chunk *tc, const char *pathbuf,
-                              uint64_t base_timestamp, int main)
+static int ts_chunk_load(Timeseries_Chunk *tc, const char *pathbuf,
+                         uint64_t base_timestamp, int main)
 {
 
-    int err = wal_from_disk(&tc->wal, pathbuf, base_timestamp, main);
+    int err = wal_load(&tc->wal, pathbuf, base_timestamp, main);
     if (err < 0)
         return -1;
 
@@ -298,16 +298,16 @@ int ts_init(Timeseries *ts)
             strncmp(dot, ".log", 4) == 0) {
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 6);
             if (namelist[i]->d_name[4] == 'h') {
-                err = ts_chunk_from_disk(&ts->head, pathbuf, base_timestamp, 1);
+                err = ts_chunk_load(&ts->head, pathbuf, base_timestamp, 1);
             } else if (namelist[i]->d_name[4] == 't') {
-                err = ts_chunk_from_disk(&ts->prev, pathbuf, base_timestamp, 0);
+                err = ts_chunk_load(&ts->prev, pathbuf, base_timestamp, 0);
             }
             ok = err == 0;
         } else if (namelist[i]->d_name[0] == 'c') {
             // There is a log partition
             uint64_t base_timestamp = atoll(namelist[i]->d_name + 3);
-            err = partition_from_disk(&ts->partitions[ts->partition_nr++],
-                                      pathbuf, base_timestamp);
+            err = partition_load(&ts->partitions[ts->partition_nr++], pathbuf,
+                                 base_timestamp);
         }
 
         free(namelist[i]);
@@ -395,7 +395,7 @@ int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value)
             ts_chunk_init(&ts->prev, pathbuf, sec, 0);
 
         // Persist to disk for disaster recovery
-        wal_append_record(&ts->prev.wal, timestamp, value);
+        wal_append(&ts->prev.wal, timestamp, value);
 
         // If we successfully insert the record, we can return
         if (ts_chunk_record_fit(&ts->prev, sec) == 0)
@@ -406,7 +406,7 @@ int ts_insert(Timeseries *ts, uint64_t timestamp, double_t value)
         ts_chunk_init(&ts->head, pathbuf, sec, 1);
 
     // Persist to disk for disaster recovery
-    wal_append_record(&ts->head.wal, timestamp, value);
+    wal_append(&ts->head.wal, timestamp, value);
     // Check if the timestamp is in range of the current chunk, otherwise
     // create a new in-memory segment
     if (ts_chunk_record_fit(&ts->head, sec) < 0) {

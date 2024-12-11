@@ -25,22 +25,22 @@ typedef struct range {
 } Range;
 
 // Initializes a Persistent_Index structure
-int p_index_init(Persistent_Index *pi, const char *path, uint64_t base);
+int index_init(Persistent_Index *pi, const char *path, uint64_t base);
 
 // Closes the index file associated with a Persistent_Index structure
-int p_index_close(Persistent_Index *pi);
+int index_close(Persistent_Index *pi);
 
 // Loads a Persistent_Index structure from disk
-int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base);
+int index_load(Persistent_Index *pi, const char *path, uint64_t base);
 
 // Appends an offset to the index file associated with a Persistent_Index
 // structure
-int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset);
+int index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset);
 
 // Finds the offset range for a given timestamp in the index file
-int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r);
+int index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r);
 
 // Prints information about a PersistentIndex structure
-void p_index_print(const Persistent_Index *pi);
+void index_print(const Persistent_Index *pi);
 
 #endif

@@ -15,7 +15,7 @@ typedef struct commit_log {
 
 int c_log_init(Commit_Log *cl, const char *path, uint64_t base);
 
-int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base);
+int c_log_load(Commit_Log *cl, const char *path, uint64_t base);
 
 void c_log_set_base_ns(Commit_Log *cl, uint64_t ns);
 

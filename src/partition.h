@@ -15,7 +15,7 @@ typedef struct partition {
 
 int partition_init(Partition *p, const char *path, uint64_t base);
 
-int partition_from_disk(Partition *p, const char *path, uint64_t base);
+int partition_load(Partition *p, const char *path, uint64_t base);
 
 int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc);
 

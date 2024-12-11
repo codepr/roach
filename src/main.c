@@ -69,7 +69,7 @@ int main(void)
     /*     usleep(115000); */
     /* } */
 
-    /* p_index_print(&ts->partitions[0].index); */
+    /* index_print(&ts->partitions[0].index); */
 
     /* ts_print(ts); */
     /* log_info("Print log"); */
@@ -99,7 +99,7 @@ int main(void)
 
     /* /\* log_info("Attempting a read from disk"); *\/ */
 
-    /* /\* p_index_print(&p.index); *\/ */
+    /* /\* index_print(&p.index); *\/ */
 
     /* log_info("Find single record at %lu", timestamps[51]); */
     /* ts_find(ts, timestamps[51], &r); */
@@ -119,7 +119,7 @@ int main(void)
 
     /* /\* c_log_print(&p.clog); *\/ */
 
-    /* /\* p_index_print(ts->partitions[0].index); *\/ */
+    /* /\* index_print(ts->partitions[0].index); *\/ */
 
     /* log_info("Looking for record: %lu", timestamps[88]); */
     /* ts_find(ts, timestamps[88], &r); */

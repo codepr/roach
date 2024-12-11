@@ -43,7 +43,7 @@ int wal_delete(Wal *w)
     return remove(tmp);
 }
 
-int wal_from_disk(Wal *w, const char *path, uint64_t base_timestamp, int main)
+int wal_load(Wal *w, const char *path, uint64_t base_timestamp, int main)
 {
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/wal-%c-%.20" PRIu64, path, t[main],
@@ -61,7 +61,7 @@ errdefer:
     return -1;
 }
 
-int wal_append_record(Wal *wal, uint64_t ts, double_t value)
+int wal_append(Wal *wal, uint64_t ts, double_t value)
 {
     size_t len = sizeof(uint64_t) + sizeof(double_t);
     uint8_t buf[len];

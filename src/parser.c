@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <inttypes.h>
 #include <string.h>
 
 String_View string_view_from_parts(const char *src, size_t len)

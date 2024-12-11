@@ -3,11 +3,12 @@
 #include "disk_io.h"
 #include "logging.h"
 #include "timeseries.h"
+#include <inttypes.h>
 
 int c_log_init(Commit_Log *cl, const char *path, uint64_t base)
 {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20llu", path, base);
+    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20" PRIu64, path, base);
 
     cl->fp = open_file(path_buf, "log", "w+");
     if (!cl->fp)
@@ -23,10 +24,10 @@ int c_log_init(Commit_Log *cl, const char *path, uint64_t base)
 
 void c_log_set_base_ns(Commit_Log *cl, uint64_t ns) { cl->base_ns = ns; }
 
-int c_log_from_disk(Commit_Log *cl, const char *path, uint64_t base)
+int c_log_load(Commit_Log *cl, const char *path, uint64_t base)
 {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20llu", path, base);
+    snprintf(path_buf, sizeof(path_buf), "%s/c-%.20" PRIu64, path, base);
 
     cl->fp = open_file(path_buf, "log", "r");
     if (!cl->fp)

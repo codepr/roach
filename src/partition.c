@@ -17,7 +17,7 @@ int partition_init(Partition *p, const char *path, uint64_t base)
     if (err < 0)
         return -1;
 
-    err = p_index_init(&p->index, path, base);
+    err = index_init(&p->index, path, base);
     if (err < 0)
         return -1;
 
@@ -27,13 +27,13 @@ int partition_init(Partition *p, const char *path, uint64_t base)
     return 0;
 }
 
-int partition_from_disk(Partition *p, const char *path, uint64_t base)
+int partition_load(Partition *p, const char *path, uint64_t base)
 {
-    int err = c_log_from_disk(&p->clog, path, base);
+    int err = c_log_load(&p->clog, path, base);
     if (err < 0)
         return -1;
 
-    err = p_index_from_disk(&p->index, path, base);
+    err = index_load(&p->index, path, base);
     if (err < 0)
         return -1;
 
@@ -50,8 +50,8 @@ static int commit_records_to_log(Partition *p, const uint8_t *buf, size_t len)
         return -1;
 
     size_t commit_log_size = p->clog.size;
-    err = p_index_append_offset(&p->index, ts_record_timestamp(buf),
-                                commit_log_size - TS_BATCH_OFFSET);
+    err = index_append_offset(&p->index, ts_record_timestamp(buf),
+                              commit_log_size - TS_BATCH_OFFSET);
     if (err < 0)
         return -1;
 
@@ -141,7 +141,7 @@ static uint64_t end_offset(const Partition *p, const Range *r)
 int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp)
 {
     Range range;
-    int err = p_index_find_offset(&p->index, timestamp, &range);
+    int err = index_find_offset(&p->index, timestamp, &range);
     if (err < 0)
         return -1;
 
@@ -175,11 +175,11 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp)
 int partition_range(const Partition *p, uint8_t *dst, uint64_t t0, uint64_t t1)
 {
     Range r0, r1;
-    int err = p_index_find_offset(&p->index, t0, &r0);
+    int err = index_find_offset(&p->index, t0, &r0);
     if (err < 0)
         return -1;
 
-    err = p_index_find_offset(&p->index, t1, &r1);
+    err = index_find_offset(&p->index, t1, &r1);
     if (err < 0)
         return -1;
 

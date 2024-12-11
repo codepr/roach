@@ -2,15 +2,16 @@
 #include "binary.h"
 #include "disk_io.h"
 #include "logging.h"
+#include <inttypes.h>
 
 // relative timestamp -> main segment offset position in the file
 static const size_t ENTRY_SIZE = sizeof(uint64_t) * 2;
 static const size_t INDEX_SIZE = 1 << 12;
 
-int p_index_init(Persistent_Index *pi, const char *path, uint64_t base)
+int index_init(Persistent_Index *pi, const char *path, uint64_t base)
 {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20llu", path, base);
+    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20" PRIu64, path, base);
 
     pi->fp = open_file(path_buf, "index", "w+");
     if (!pi->fp)
@@ -22,12 +23,12 @@ int p_index_init(Persistent_Index *pi, const char *path, uint64_t base)
     return 0;
 }
 
-int p_index_close(Persistent_Index *pi) { return fclose(pi->fp); }
+int index_close(Persistent_Index *pi) { return fclose(pi->fp); }
 
-int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base)
+int index_load(Persistent_Index *pi, const char *path, uint64_t base)
 {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20llu", path, base);
+    snprintf(path_buf, sizeof(path_buf), "%s/i-%.20" PRIu64, path, base);
 
     pi->fp = open_file(path_buf, "index", "r");
     if (!pi->fp)
@@ -39,7 +40,7 @@ int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base)
     return 0;
 }
 
-int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset)
+int index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset)
 {
     uint64_t relative_ts = ts - (pi->base_timestamp * 1e9);
 
@@ -58,7 +59,7 @@ int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset)
     return 0;
 }
 
-int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r)
+int index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r)
 {
     if (pi->size == 0) {
         *r = (Range){0, 0};
@@ -104,7 +105,7 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r)
     return 0;
 }
 
-void p_index_print(const Persistent_Index *pi)
+void index_print(const Persistent_Index *pi)
 {
     uint8_t buf[INDEX_SIZE];
     uint8_t *p   = &buf[0];
