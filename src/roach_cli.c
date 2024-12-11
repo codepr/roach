@@ -1,6 +1,7 @@
 #include "client.h"
 #include "protocol.h"
 #include <errno.h>
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -44,7 +45,8 @@ static void print_response(const Response *rs)
         printf("%s\n", rs->string_response.message);
     } else {
         for (size_t i = 0; i < rs->array_response.length; ++i)
-            printf("%llu %.6f\n", rs->array_response.records[i].timestamp,
+            printf("%" PRIu64 " %.6f\n",
+                   rs->array_response.records[i].timestamp,
                    rs->array_response.records[i].value);
     }
 }

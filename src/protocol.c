@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -81,7 +82,7 @@ ssize_t encode_response(const Response *r, uint8_t *dst)
     while (j < r->array_response.length) {
         // Timestamp
         dst[i++] = ':';
-        n        = snprintf((char *)dst + i, 21, "%llu",
+        n        = snprintf((char *)dst + i, 21, "%" PRIu64,
                             r->array_response.records[j].timestamp);
         i += n;
         dst[i++] = '\r';
