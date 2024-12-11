@@ -14,7 +14,8 @@
  * Create a non-blocking socket and use it to connect to the specified host and
  * port
  */
-static int roach_connect(const struct connect_options *opts) {
+static int roach_connect(const struct connect_options *opts)
+{
 
     /* socket: create the socket */
     int fd = socket(opts->s_family, SOCK_STREAM, 0);
@@ -24,7 +25,7 @@ static int roach_connect(const struct connect_options *opts) {
     /* Set socket timeout for read and write if present on options */
     if (opts->timeout > 0) {
         struct timeval tv;
-        tv.tv_sec = opts->timeout;
+        tv.tv_sec  = opts->timeout;
         tv.tv_usec = 0;
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof(tv));
         setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof(tv));
@@ -41,8 +42,8 @@ static int roach_connect(const struct connect_options *opts) {
 
         /* build the server's address */
         addr.sin_family = opts->s_family;
-        addr.sin_port = htons(opts->s_port);
-        addr.sin_addr = *((struct in_addr *)server->h_addr);
+        addr.sin_port   = htons(opts->s_port);
+        addr.sin_addr   = *((struct in_addr *)server->h_addr);
         bzero(&(addr.sin_zero), 8);
 
         /* connect: create a connection with the server */
@@ -76,11 +77,13 @@ err:
     return CLIENT_FAILURE;
 }
 
-void client_init(Client *c, const struct connect_options *opts) {
+void client_init(Client *c, const struct connect_options *opts)
+{
     c->opts = opts;
 }
 
-int client_connect(Client *c) {
+int client_connect(Client *c)
+{
     int fd = roach_connect(c->opts);
     if (fd < 0)
         return CLIENT_FAILURE;
@@ -90,7 +93,8 @@ int client_connect(Client *c) {
 
 void client_disconnect(Client *c) { close(c->fd); }
 
-int client_send_command(Client *c, char *buf) {
+int client_send_command(Client *c, char *buf)
+{
     uint8_t data[BUFSIZE];
     Request rq = {.length = strlen(buf) - 1};
     snprintf(rq.query, sizeof(rq.query), "%s", buf);
@@ -101,7 +105,8 @@ int client_send_command(Client *c, char *buf) {
     return write(c->fd, data, n);
 }
 
-int client_recv_response(Client *c, Response *rs) {
+int client_recv_response(Client *c, Response *rs)
+{
     uint8_t data[BUFSIZE];
     ssize_t n = read(c->fd, data, BUFSIZE);
     if (n < 0)

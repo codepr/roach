@@ -43,7 +43,8 @@
 /*     return 0; */
 /* } */
 
-int main(void) {
+int main(void)
+{
     /* uint64_t timestamps[POINTS_NR]; */
 
     /* Timeseries_DB *db = tsdb_init("testdb"); */
@@ -296,7 +297,7 @@ int main(void) {
     /*        rsb.string_response.length); */
 
     Request rq = {.length = 36,
-                  .query = "SELECT temp FROM test RANGE 10 TO 45"};
+                  .query  = "SELECT temp FROM test RANGE 10 TO 45"};
     encode_request(&rq, &dst[0]);
     printf("%s", dst);
 

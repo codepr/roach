@@ -10,7 +10,7 @@ typedef struct allocator {
     void *context;
 } Allocator;
 
-#define alloc(T, n, a) ((T *)((a).alloc(sizeof(T) * n, (a).context)))
+#define alloc(T, n, a)   ((T *)((a).alloc(sizeof(T) * n, (a).context)))
 #define release(s, p, a) ((a).free(s, p, (a).context))
 
 typedef struct arena {

@@ -10,9 +10,9 @@
 #include <time.h>
 
 #define TS_NAME_MAX_LENGTH 1 << 9
-#define TS_CHUNK_SIZE 900 // 15 min
-#define TS_MAX_PARTITIONS 16
-#define DATA_PATH_SIZE 1 << 8
+#define TS_CHUNK_SIZE      900 // 15 min
+#define TS_MAX_PARTITIONS  16
+#define DATA_PATH_SIZE     1 << 8
 
 extern const size_t TS_FLUSH_SIZE;
 extern const size_t TS_BATCH_OFFSET;

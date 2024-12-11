@@ -1,16 +1,19 @@
 #include "parser.h"
 #include <string.h>
 
-String_View string_view_from_parts(const char *src, size_t len) {
+String_View string_view_from_parts(const char *src, size_t len)
+{
     String_View view = {.length = len, .p = src};
     return view;
 }
 
-String_View string_view_from_cstring(const char *src) {
+String_View string_view_from_cstring(const char *src)
+{
     return string_view_from_parts(src, strlen(src));
 }
 
-String_View string_view_chop_by_delim(String_View *view, const char delim) {
+String_View string_view_chop_by_delim(String_View *view, const char delim)
+{
     size_t i = 0;
     while (i < view->length && view->p[i] != delim) {
         i += 1;
@@ -39,22 +42,25 @@ typedef struct {
 } Lexer;
 
 // Function to get the next token from the lexer
-String_View lexer_next(Lexer *l) {
+String_View lexer_next(Lexer *l)
+{
     String_View lexiom = string_view_chop_by_delim(&l->view, ' ');
-    l->length = l->view.length;
+    l->length          = l->view.length;
     return lexiom;
 }
 
 // Function to get the next token by a separator from the lexer
-String_View lexer_next_by_sep(Lexer *l, char sep) {
+String_View lexer_next_by_sep(Lexer *l, char sep)
+{
     String_View lexiom = string_view_chop_by_delim(&l->view, sep);
-    l->length = l->view.length;
+    l->length          = l->view.length;
     return lexiom;
 }
 
 // Function to peek at the next token from the lexer without consuming it
-String_View lexer_peek(Lexer *l) {
-    size_t length = l->length;
+String_View lexer_peek(Lexer *l)
+{
+    size_t length      = l->length;
     String_View lexiom = lexer_next(l);
     l->view.p -= length - l->length;
     l->view.length = length;
@@ -91,11 +97,12 @@ typedef struct token {
     char value[IDENTIFIER_LENGTH];
 } Token;
 
-static ssize_t tokenize_create(Lexer *l, Token *tokens, size_t capacity) {
+static ssize_t tokenize_create(Lexer *l, Token *tokens, size_t capacity)
+{
     String_View token = lexer_next(l);
-    size_t i = 0;
+    size_t i          = 0;
 
-    tokens[i].type = TOKEN_CREATE;
+    tokens[i].type    = TOKEN_CREATE;
     strncpy(tokens[i].value, token.p, token.length);
 
     while (l->length > 0 && ++i < capacity) {
@@ -103,7 +110,7 @@ static ssize_t tokenize_create(Lexer *l, Token *tokens, size_t capacity) {
 
         if (strncmp(token.p, "INTO", token.length) == 0) {
             tokens[i].type = TOKEN_INTO;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             strncpy(tokens[i].value, token.p, token.length);
             // TODO retention and duplication policy
         }
@@ -113,11 +120,12 @@ static ssize_t tokenize_create(Lexer *l, Token *tokens, size_t capacity) {
 }
 
 // Function to tokenize input string into an array of tokens
-static ssize_t tokenize_insert(Lexer *l, Token *tokens, size_t capacity) {
+static ssize_t tokenize_insert(Lexer *l, Token *tokens, size_t capacity)
+{
     String_View token = lexer_next(l);
-    size_t i = 0;
+    size_t i          = 0;
 
-    tokens[i].type = TOKEN_INSERT;
+    tokens[i].type    = TOKEN_INSERT;
     strncpy(tokens[i].value, token.p, token.length);
     token = lexer_next(l);
 
@@ -125,7 +133,7 @@ static ssize_t tokenize_insert(Lexer *l, Token *tokens, size_t capacity) {
 
     if (strncmp(token.p, "INTO", token.length) == 0) {
         tokens[i].type = TOKEN_INTO;
-        token = lexer_next(l);
+        token          = lexer_next(l);
         strncpy(tokens[i].value, token.p, token.length);
     }
 
@@ -135,11 +143,11 @@ static ssize_t tokenize_insert(Lexer *l, Token *tokens, size_t capacity) {
         // At the moment we don't care of splitting on ',' and keeping
         // spaces around, they're all numeric values anyway and will be
         // parsed int proper type integer/double values
-        token = lexer_next_by_sep(l, ',');
+        token          = lexer_next_by_sep(l, ',');
         tokens[i].type = TOKEN_TIMESTAMP;
         strncpy(tokens[i].value, token.p, token.length);
         ++i;
-        token = lexer_next_by_sep(l, ',');
+        token          = lexer_next_by_sep(l, ',');
         tokens[i].type = TOKEN_LITERAL;
         strncpy(tokens[i].value, token.p, token.length);
     }
@@ -147,11 +155,12 @@ static ssize_t tokenize_insert(Lexer *l, Token *tokens, size_t capacity) {
     return i;
 }
 
-static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
+static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity)
+{
     String_View token = lexer_next(l);
-    size_t i = 0;
+    size_t i          = 0;
 
-    tokens[i].type = TOKEN_SELECT;
+    tokens[i].type    = TOKEN_SELECT;
     strncpy(tokens[i].value, token.p, token.length);
 
     while (l->length > 0 && ++i < capacity) {
@@ -159,28 +168,28 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
 
         if (strncmp(token.p, "FROM", token.length) == 0) {
             tokens[i].type = TOKEN_FROM;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             strncpy(tokens[i].value, token.p, token.length);
         } else if (strncmp(token.p, "AT", token.length) == 0) {
             tokens[i].type = TOKEN_AT;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
         } else if (strncmp(token.p, "RANGE", token.length) == 0) {
             tokens[i].type = TOKEN_RANGE;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "TO", token.length) == 0) {
             tokens[i].type = TOKEN_TO;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "WHERE", token.length) == 0) {
             tokens[i].type = TOKEN_WHERE;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             strncpy(tokens[i].value, token.p, token.length);
         } else if (strncmp(token.p, "AGGREGATE", token.length) == 0) {
             tokens[i].type = TOKEN_AGGREGATE;
@@ -188,7 +197,7 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
             tokens[i].type = TOKEN_AGGREGATE_FN;
         } else if (strncmp(token.p, "BY", token.length) == 0) {
             tokens[i].type = TOKEN_BY;
-            token = lexer_next(l);
+            token          = lexer_next(l);
             if (sscanf(token.p, "%llu", &(uint64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
@@ -215,10 +224,11 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
     return i;
 }
 
-static ssize_t tokenize(const char *query, Token *tokens, size_t capacity) {
-    size_t token_count = 0;
-    String_View view = string_view_from_cstring(query);
-    Lexer l = {.view = view, .length = view.length};
+static ssize_t tokenize(const char *query, Token *tokens, size_t capacity)
+{
+    size_t token_count      = 0;
+    String_View view        = string_view_from_cstring(query);
+    Lexer l                 = {.view = view, .length = view.length};
     String_View first_token = lexer_next(&l);
 
     if (strncmp(first_token.p, "CREATE", first_token.length) == 0)
@@ -234,7 +244,8 @@ static ssize_t tokenize(const char *query, Token *tokens, size_t capacity) {
 }
 
 // Function to parse CREATE statement from tokens
-static Statement_Create parse_create(Token *tokens, size_t token_count) {
+static Statement_Create parse_create(Token *tokens, size_t token_count)
+{
     Statement_Create create = {.mask = 0};
 
     if (token_count == 1) {
@@ -257,10 +268,11 @@ static Statement_Create parse_create(Token *tokens, size_t token_count) {
 }
 
 // Function to parse INSERT statement from tokens
-static Statement_Insert parse_insert(Token *tokens, size_t token_count) {
+static Statement_Insert parse_insert(Token *tokens, size_t token_count)
+{
     Statement_Insert insert;
     char *endptr = NULL;
-    size_t j = 0;
+    size_t j     = 0;
 
     for (size_t i = 0; i < token_count; ++i) {
         if (tokens[i].type == TOKEN_INSERT) {
@@ -287,9 +299,10 @@ static Statement_Insert parse_insert(Token *tokens, size_t token_count) {
 }
 
 // Function to parse SELECT statement from tokens
-static Statement_Select parse_select(Token *tokens, size_t token_count) {
+static Statement_Select parse_select(Token *tokens, size_t token_count)
+{
     Statement_Select select = {.mask = 0};
-    char *endptr = NULL;
+    char *endptr            = NULL;
 
     for (size_t i = 0; i < token_count; ++i) {
         switch (tokens[i].type) {
@@ -303,7 +316,7 @@ static Statement_Select parse_select(Token *tokens, size_t token_count) {
             break;
         case TOKEN_AT:
             select.start_time = atoll(tokens[i].value);
-            select.end_time = 0;
+            select.end_time   = 0;
             select.mask |= SM_SINGLE;
             break;
         case TOKEN_RANGE:
@@ -365,8 +378,9 @@ static Statement_Select parse_select(Token *tokens, size_t token_count) {
     return select;
 }
 
-Statement parse(const char *input) {
-    Token *tokens = calloc(20, sizeof(Token));
+Statement parse(const char *input)
+{
+    Token *tokens      = calloc(20, sizeof(Token));
     size_t token_count = tokenize(input, tokens, 20);
 
     if (token_count < 1) {
@@ -378,15 +392,15 @@ Statement parse(const char *input) {
 
     switch (tokens[0].type) {
     case TOKEN_CREATE:
-        statement.type = STATEMENT_CREATE;
+        statement.type   = STATEMENT_CREATE;
         statement.create = parse_create(tokens, token_count);
         break;
     case TOKEN_INSERT:
-        statement.type = STATEMENT_INSERT;
+        statement.type   = STATEMENT_INSERT;
         statement.insert = parse_insert(tokens, token_count);
         break;
     case TOKEN_SELECT:
-        statement.type = STATEMENT_SELECT;
+        statement.type   = STATEMENT_SELECT;
         statement.select = parse_select(tokens, token_count);
         break;
     default:
@@ -398,7 +412,8 @@ Statement parse(const char *input) {
     return statement;
 }
 
-static void print_create(const Statement_Create *create) {
+static void print_create(const Statement_Create *create)
+{
     if (create->mask == 0) {
         printf("CREATE\n\t%s\n", create->db_name);
     } else {
@@ -407,7 +422,8 @@ static void print_create(const Statement_Create *create) {
     }
 }
 
-static void print_insert(const Statement_Insert *insert) {
+static void print_insert(const Statement_Insert *insert)
+{
     printf("INSERT\n\t%s\nINTO\n\t%s\n", insert->ts_name, insert->db_name);
     printf("VALUES\n\t");
     for (size_t i = 0; i < insert->record_len; ++i) {
@@ -417,7 +433,8 @@ static void print_insert(const Statement_Insert *insert) {
     printf("\n");
 }
 
-static void print_select(const Statement_Select *select) {
+static void print_select(const Statement_Select *select)
+{
     printf("SELECT\n\t%s\nFROM\n\t%s\n", select->ts_name, select->db_name);
     if (select->mask & SM_SINGLE)
         printf("AT\n\t%lli\n", select->start_time);
@@ -432,7 +449,8 @@ static void print_select(const Statement_Select *select) {
         printf("BY\n\t%llu\n", select->interval);
 }
 
-void print_statement(const Statement *statement) {
+void print_statement(const Statement *statement)
+{
     switch (statement->type) {
     case STATEMENT_CREATE:
         print_create(&statement->create);

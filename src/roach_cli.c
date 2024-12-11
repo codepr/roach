@@ -5,10 +5,11 @@
 #include <string.h>
 #include <time.h>
 
-#define LOCALHOST "127.0.0.1"
+#define LOCALHOST    "127.0.0.1"
 #define DEFAULT_PORT 17678
 
-static const char *cmd_usage(const char *cmd) {
+static const char *cmd_usage(const char *cmd)
+{
     if (strncasecmp(cmd, "create", 6) == 0)
         return "CREATE <database-name>|<timeseries-name> [INTO <database "
                "name>] [retention] [dup policy]";
@@ -24,18 +25,21 @@ static const char *cmd_usage(const char *cmd) {
     return NULL;
 }
 
-static double timespec_seconds(struct timespec *ts) {
+static double timespec_seconds(struct timespec *ts)
+{
     return (double)ts->tv_sec + (double)ts->tv_nsec * 1.0e-9;
 }
 
-static void prompt(Client *c) {
+static void prompt(Client *c)
+{
     if (c->opts->s_family == AF_INET)
         printf("%s:%i> ", c->opts->s_addr, c->opts->s_port);
     else if (c->opts->s_family == AF_UNIX)
         printf("%s> ", c->opts->s_addr);
 }
 
-static void print_response(const Response *rs) {
+static void print_response(const Response *rs)
+{
     if (rs->type == STRING_RSP) {
         printf("%s\n", rs->string_response.message);
     } else {
@@ -45,11 +49,12 @@ static void print_response(const Response *rs) {
     }
 }
 
-int main(void) {
+int main(void)
+{
     int port = DEFAULT_PORT, mode = AF_INET;
-    char *host = LOCALHOST;
+    char *host      = LOCALHOST;
     size_t line_len = 0LL;
-    char *line = NULL;
+    char *line      = NULL;
     Response rs;
     double delta = 0.0;
 
@@ -57,12 +62,12 @@ int main(void) {
     struct connect_options conn_opts;
     memset(&conn_opts, 0x00, sizeof(conn_opts));
     conn_opts.s_family = mode;
-    conn_opts.s_addr = host;
-    conn_opts.s_port = port;
+    conn_opts.s_addr   = host;
+    conn_opts.s_port   = port;
     client_init(&c, &conn_opts);
     if (client_connect(&c) < 0)
         exit(EXIT_FAILURE);
-    int err = 0;
+    int err                    = 0;
     struct timespec start_time = {0}, end_time = {0};
     while (1) {
         prompt(&c);

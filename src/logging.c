@@ -7,7 +7,8 @@
 
 static const char *llevels = "+#!";
 
-void rr_log(rr_log_level level, const char *fmt, ...) {
+void rr_log(rr_log_level level, const char *fmt, ...)
+{
     FILE *fp = level > R_INFO ? stderr : stdout;
     fprintf(fp, "%lu %c ", time(NULL), llevels[level]);
     va_list args;

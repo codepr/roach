@@ -8,7 +8,8 @@
 
 const size_t MAX_PATH_SIZE = 1024;
 
-int make_dir(const char *path) {
+int make_dir(const char *path)
+{
     struct stat st = {0};
 
     if (stat(path, &st) == -1) {
@@ -17,7 +18,8 @@ int make_dir(const char *path) {
     return 0;
 }
 
-FILE *open_file(const char *path, const char *ext, const char *modes) {
+FILE *open_file(const char *path, const char *ext, const char *modes)
+{
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s.%s", path, ext);
 
@@ -29,7 +31,8 @@ FILE *open_file(const char *path, const char *ext, const char *modes) {
     return fp;
 }
 
-ssize_t get_file_size(FILE *fp, long offset) {
+ssize_t get_file_size(FILE *fp, long offset)
+{
     if (fseek(fp, 0, SEEK_END) < 0) {
         fclose(fp);
         return -1;
@@ -42,7 +45,8 @@ ssize_t get_file_size(FILE *fp, long offset) {
     return size;
 }
 
-int buf_read_file(FILE *fp, Buffer *buffer) {
+int buf_read_file(FILE *fp, Buffer *buffer)
+{
     /* Get the buffer size */
     if (fseek(fp, 0, SEEK_END) < 0) {
         log_error("Error reading file: fseek %s", strerror(errno));
@@ -60,14 +64,15 @@ int buf_read_file(FILE *fp, Buffer *buffer) {
     /* Read the file into the buffer */
     fread(buffer->buf, 1, size, fp);
 
-    buffer->size = size;
+    buffer->size      = size;
 
     /* NULL-terminate the buffer */
     buffer->buf[size] = '\0';
     return 0;
 }
 
-ssize_t read_file(FILE *fp, uint8_t *buf) {
+ssize_t read_file(FILE *fp, uint8_t *buf)
+{
     /* Get the buffer size */
     if (fseek(fp, 0, SEEK_END) < 0) {
         perror("fseek");
@@ -87,12 +92,14 @@ ssize_t read_file(FILE *fp, uint8_t *buf) {
     return size;
 }
 
-ssize_t read_at(FILE *fp, uint8_t *buf, size_t offset, size_t len) {
+ssize_t read_at(FILE *fp, uint8_t *buf, size_t offset, size_t len)
+{
     int fd = fileno(fp);
     return pread(fd, buf, len, offset);
 }
 
-ssize_t write_at(FILE *fp, const uint8_t *buf, size_t offset, size_t len) {
+ssize_t write_at(FILE *fp, const uint8_t *buf, size_t offset, size_t len)
+{
     int fd = fileno(fp);
     return pwrite(fd, buf, len, offset);
 }

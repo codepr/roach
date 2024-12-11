@@ -4,8 +4,8 @@
 #include <netdb.h>
 #include <stdio.h>
 
-#define CLIENT_SUCCESS 0
-#define CLIENT_FAILURE -1
+#define CLIENT_SUCCESS     0
+#define CLIENT_FAILURE     -1
 #define CLIENT_UNKNOWN_CMD -2
 
 typedef struct response Response;

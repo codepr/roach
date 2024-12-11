@@ -7,7 +7,8 @@
 static const size_t ENTRY_SIZE = sizeof(uint64_t) * 2;
 static const size_t INDEX_SIZE = 1 << 12;
 
-int p_index_init(Persistent_Index *pi, const char *path, uint64_t base) {
+int p_index_init(Persistent_Index *pi, const char *path, uint64_t base)
+{
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/i-%.20llu", path, base);
 
@@ -15,7 +16,7 @@ int p_index_init(Persistent_Index *pi, const char *path, uint64_t base) {
     if (!pi->fp)
         return -1;
 
-    pi->size = 0;
+    pi->size           = 0;
     pi->base_timestamp = base;
 
     return 0;
@@ -23,7 +24,8 @@ int p_index_init(Persistent_Index *pi, const char *path, uint64_t base) {
 
 int p_index_close(Persistent_Index *pi) { return fclose(pi->fp); }
 
-int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base) {
+int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base)
+{
     char path_buf[MAX_PATH_SIZE];
     snprintf(path_buf, sizeof(path_buf), "%s/i-%.20llu", path, base);
 
@@ -31,13 +33,14 @@ int p_index_from_disk(Persistent_Index *pi, const char *path, uint64_t base) {
     if (!pi->fp)
         return -1;
 
-    pi->size = get_file_size(pi->fp, 0);
+    pi->size           = get_file_size(pi->fp, 0);
     pi->base_timestamp = base;
 
     return 0;
 }
 
-int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset) {
+int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset)
+{
     uint64_t relative_ts = ts - (pi->base_timestamp * 1e9);
 
     // Serialize the position into integer 64bits
@@ -55,7 +58,8 @@ int p_index_append_offset(Persistent_Index *pi, uint64_t ts, uint64_t offset) {
     return 0;
 }
 
-int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
+int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r)
+{
     if (pi->size == 0) {
         *r = (Range){0, 0};
         return 0;
@@ -70,14 +74,14 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
     if (len < 0)
         return -1;
 
-    uint8_t *ptr = &buf[0];
+    uint8_t *ptr        = &buf[0];
     int64_t prev_offset = 0, offset = 0;
     uint64_t timestamp = 0, entry_ts = 0;
     while (len > 0) {
         // Decode from binary
         timestamp = read_i64(ptr);
-        offset = read_i64(ptr + sizeof(uint64_t));
-        entry_ts = timestamp + base_ts;
+        offset    = read_i64(ptr + sizeof(uint64_t));
+        entry_ts  = timestamp + base_ts;
         // We went too forward
         if (entry_ts > ts)
             break;
@@ -95,19 +99,20 @@ int p_index_find_offset(const Persistent_Index *pi, uint64_t ts, Range *r) {
     // find anything close to the request timestamp, which means it must be
     // at the end of the log
     r->start = prev_offset;
-    r->end = len == 0 ? -1 : offset;
+    r->end   = len == 0 ? -1 : offset;
 
     return 0;
 }
 
-void p_index_print(const Persistent_Index *pi) {
+void p_index_print(const Persistent_Index *pi)
+{
     uint8_t buf[INDEX_SIZE];
-    uint8_t *p = &buf[0];
+    uint8_t *p   = &buf[0];
     ssize_t read = 0;
     uint64_t ts = 0, value = 0;
     ssize_t len = read_file(pi->fp, buf);
     while (read < len) {
-        ts = read_i64(p);
+        ts    = read_i64(p);
         value = read_i64(p + sizeof(uint64_t));
         read += ENTRY_SIZE;
         p += ENTRY_SIZE;

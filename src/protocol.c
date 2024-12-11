@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 
-static ssize_t encode_string(uint8_t *dst, const char *src, size_t length) {
+static ssize_t encode_string(uint8_t *dst, const char *src, size_t length)
+{
     size_t i = 0, j = 0;
 
     // Payload length just after the $ indicator
@@ -24,16 +25,18 @@ static ssize_t encode_string(uint8_t *dst, const char *src, size_t length) {
     return i;
 }
 
-ssize_t encode_request(const Request *r, uint8_t *dst) {
+ssize_t encode_request(const Request *r, uint8_t *dst)
+{
     dst[0] = '$';
     return 1 + encode_string(dst + 1, r->query, r->length);
 }
 
-ssize_t decode_request(const uint8_t *data, Request *dst) {
+ssize_t decode_request(const uint8_t *data, Request *dst)
+{
     if (data[0] != '$')
         return -1;
 
-    size_t i = 0;
+    size_t i           = 0;
     const uint8_t *ptr = &data[1];
 
     // Read length
@@ -53,7 +56,8 @@ ssize_t decode_request(const uint8_t *data, Request *dst) {
     return dst->length;
 }
 
-ssize_t encode_response(const Response *r, uint8_t *dst) {
+ssize_t encode_response(const Response *r, uint8_t *dst)
+{
     if (r->type == STRING_RSP) {
         // String response
         dst[0] = r->string_response.rc == 0 ? '$' : '!';
@@ -61,12 +65,12 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
                                  r->string_response.length);
     }
     // Array response
-    dst[0] = '#';
+    dst[0]    = '#';
     ssize_t i = 1;
-    size_t j = 0;
+    size_t j  = 0;
 
     // Array length
-    size_t n = snprintf((char *)dst + i, 20, "%lu", r->array_response.length);
+    size_t n  = snprintf((char *)dst + i, 20, "%lu", r->array_response.length);
     i += n;
 
     // CRLF
@@ -77,15 +81,15 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
     while (j < r->array_response.length) {
         // Timestamp
         dst[i++] = ':';
-        n = snprintf((char *)dst + i, 21, "%llu",
-                     r->array_response.records[j].timestamp);
+        n        = snprintf((char *)dst + i, 21, "%llu",
+                            r->array_response.records[j].timestamp);
         i += n;
         dst[i++] = '\r';
         dst[i++] = '\n';
         // Value
         dst[i++] = ';';
-        n = snprintf((char *)dst + i, 21, "%lf",
-                     r->array_response.records[j].value);
+        n        = snprintf((char *)dst + i, 21, "%lf",
+                            r->array_response.records[j].value);
         i += n;
         dst[i++] = '\r';
         dst[i++] = '\n';
@@ -95,7 +99,8 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
     return i;
 }
 
-static ssize_t decode_string(const uint8_t *ptr, Response *dst) {
+static ssize_t decode_string(const uint8_t *ptr, Response *dst)
+{
     size_t i = 0, n = 1;
 
     // For simplicty, assume the only error code is 1 for now, it's not used ATM
@@ -119,11 +124,12 @@ static ssize_t decode_string(const uint8_t *ptr, Response *dst) {
     return i + n;
 }
 
-ssize_t decode_response(const uint8_t *data, Response *dst) {
-    uint8_t byte = *data;
+ssize_t decode_response(const uint8_t *data, Response *dst)
+{
+    uint8_t byte   = *data;
     ssize_t length = 0;
 
-    dst->type = byte == '#' ? ARRAY_RSP : STRING_RSP;
+    dst->type      = byte == '#' ? ARRAY_RSP : STRING_RSP;
 
     switch (byte) {
     case '$':
@@ -147,7 +153,7 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
         length += 2;
 
         // Read records
-        size_t j = 0;
+        size_t j             = 0;
         size_t total_records = dst->array_response.length;
         uint8_t buf[32];
         size_t k = 0;
@@ -174,7 +180,7 @@ ssize_t decode_response(const uint8_t *data, Response *dst) {
             while (*data != '\r' && *(data + 1) != '\n' && length++)
                 buf[k++] = *data++;
 
-            buf[k] = '\0';
+            buf[k]                               = '\0';
 
             dst->array_response.records[j].value = strtold((char *)buf, NULL);
 
@@ -195,7 +201,8 @@ cleanup:
     return -1;
 }
 
-void free_response(Response *rs) {
+void free_response(Response *rs)
+{
     if (rs->type == ARRAY_RSP)
         free(rs->array_response.records);
 }

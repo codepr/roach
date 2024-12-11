@@ -8,7 +8,7 @@
 #include <string.h>
 
 #define IDENTIFIER_LENGTH 64
-#define RECORDS_LENGTH 32
+#define RECORDS_LENGTH    32
 
 /*
  * String view APIs definition
@@ -47,11 +47,11 @@ typedef enum { OP_EQ, OP_NE, OP_GE, OP_GT, OP_LE, OP_LT } Operator;
  * - With an interval to aggregate on
  */
 typedef enum Select_Mask {
-    SM_SINGLE = 0x01,
-    SM_RANGE = 0x02,
-    SM_WHERE = 0x04,
+    SM_SINGLE    = 0x01,
+    SM_RANGE     = 0x02,
+    SM_WHERE     = 0x04,
     SM_AGGREGATE = 0x08,
-    SM_BY = 0x10
+    SM_BY        = 0x10
 } Select_Mask;
 
 // Define structure for CREATE statement

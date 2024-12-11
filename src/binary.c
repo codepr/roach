@@ -8,7 +8,8 @@ uint8_t read_u8(const uint8_t *const buf) { return ((uint8_t)*buf); }
 /*
  * write_u16() -- store a 16-bit int into a char buffer (like htons())
  */
-void write_u16(uint8_t *buf, uint16_t val) {
+void write_u16(uint8_t *buf, uint16_t val)
+{
     *buf++ = val >> 8;
     *buf++ = val;
 }
@@ -16,14 +17,16 @@ void write_u16(uint8_t *buf, uint16_t val) {
 /*
  * read_u16() -- unpack a 16-bit unsigned from a char buffer (like ntohs())
  */
-uint16_t read_u16(const uint8_t *const buf) {
+uint16_t read_u16(const uint8_t *const buf)
+{
     return ((uint16_t)buf[0] << 8) | buf[1];
 }
 
 /*
  * write_u32() -- store a 32-bit int into a char buffer (like htonl())
  */
-void write_u32(uint8_t *buf, uint32_t val) {
+void write_u32(uint8_t *buf, uint32_t val)
+{
     *buf++ = val >> 24;
     *buf++ = val >> 16;
     *buf++ = val >> 8;
@@ -33,7 +36,8 @@ void write_u32(uint8_t *buf, uint32_t val) {
 /*
  * read_u32() -- unpack a 32-bit unsigned from a char buffer (like ntohl())
  */
-uint32_t read_u32(const uint8_t *const buf) {
+uint32_t read_u32(const uint8_t *const buf)
+{
     return ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
            ((uint32_t)buf[2] << 8) | buf[3];
 }
@@ -41,7 +45,8 @@ uint32_t read_u32(const uint8_t *const buf) {
 /*
  * write_i64() -- store a 64-bit int into a char buffer (like htonl())
  */
-void write_i64(uint8_t *buf, uint64_t val) {
+void write_i64(uint8_t *buf, uint64_t val)
+{
     *buf++ = val >> 56;
     *buf++ = val >> 48;
     *buf++ = val >> 40;
@@ -55,7 +60,8 @@ void write_i64(uint8_t *buf, uint64_t val) {
 /*
  * read_i64() -- unpack a 64-bit unsigned from a char buffer (like ntohl())
  */
-uint64_t read_i64(const uint8_t *const buf) {
+uint64_t read_i64(const uint8_t *const buf)
+{
     return ((uint64_t)buf[0] << 56) | ((uint64_t)buf[1] << 48) |
            ((uint64_t)buf[2] << 40) | ((uint64_t)buf[3] << 32) |
            ((uint64_t)buf[4] << 24) | ((uint64_t)buf[5] << 16) |
@@ -66,7 +72,8 @@ uint64_t read_i64(const uint8_t *const buf) {
  * write_f64() -- store a 64-bit float into a char buffer, taken from beej.us
  * guide
  */
-void write_f64(uint8_t *buf, double_t val) {
+void write_f64(uint8_t *buf, double_t val)
+{
     unsigned bits = 64, expbits = 11;
     long double fnorm;
     int shift;
@@ -78,10 +85,10 @@ void write_f64(uint8_t *buf, double_t val) {
     } else {
         // check sign and begin normalization
         if (val < 0) {
-            sign = 1;
+            sign  = 1;
             fnorm = -val;
         } else {
-            sign = 0;
+            sign  = 0;
             fnorm = val;
         }
 
@@ -95,13 +102,13 @@ void write_f64(uint8_t *buf, double_t val) {
             fnorm *= 2.0;
             shift--;
         }
-        fnorm = fnorm - 1.0;
+        fnorm       = fnorm - 1.0;
 
         // calculate the binary form (non-float) of the significand data
         significand = fnorm * ((1LL << significandbits) + 0.5f);
 
         // get the biased exponent
-        exp = shift + ((1 << (expbits - 1)) - 1); // shift + bias
+        exp         = shift + ((1 << (expbits - 1)) - 1); // shift + bias
 
         // return the final answer
         uint64_t d =
@@ -115,8 +122,9 @@ void write_f64(uint8_t *buf, double_t val) {
  * read_f64() -- unpack a 64-bit float into a char buffer, taken from beej.us
  * guide
  */
-double_t read_f64(const uint8_t *const buf) {
-    uint64_t i = read_i64(buf);
+double_t read_f64(const uint8_t *const buf)
+{
+    uint64_t i    = read_i64(buf);
     unsigned bits = 64, expbits = 11;
     long double result;
     long long shift;
@@ -132,7 +140,7 @@ double_t read_f64(const uint8_t *const buf) {
     result += 1.0f;                                // add the one back on
 
     // deal with the exponent
-    bias = (1 << (expbits - 1)) - 1;
+    bias  = (1 << (expbits - 1)) - 1;
     shift = ((i >> significandbits) & ((1LL << expbits) - 1)) - bias;
     while (shift > 0) {
         result *= 2.0;

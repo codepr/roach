@@ -12,7 +12,7 @@
 
 #define add_string_response(resp, str, rc)                                     \
     do {                                                                       \
-        (resp).type = STRING_RSP;                                              \
+        (resp).type   = STRING_RSP;                                            \
         size_t length = strlen((str));                                         \
         memset((resp).string_response.message, 0x00,                           \
                sizeof((resp).string_response.message));                        \
@@ -23,11 +23,12 @@
 // testing dummy
 static Timeseries_DB *db = NULL;
 
-static Response execute_statement(const Statement *statement) {
-    Response rs = {0};
-    Record r = {0};
+static Response execute_statement(const Statement *statement)
+{
+    Response rs    = {0};
+    Record r       = {0};
     Timeseries *ts = NULL;
-    int err = 0;
+    int err        = 0;
     struct timespec tv;
 
     switch (statement->type) {
@@ -101,12 +102,12 @@ static Response execute_statement(const Statement *statement) {
                 goto err_not_found;
             } else {
                 log_info("Record found: %lu %.2lf", r.timestamp, r.value);
-                rs.type = ARRAY_RSP;
+                rs.type                  = ARRAY_RSP;
                 rs.array_response.length = 1;
                 rs.array_response.records =
                     calloc(1, sizeof(*rs.array_response.records));
                 rs.array_response.records[0].timestamp = r.timestamp;
-                rs.array_response.records[0].value = r.value;
+                rs.array_response.records[0].value     = r.value;
             }
         } else if (statement->select.mask & SM_RANGE) {
             err = ts_range(ts, statement->select.start_time,
@@ -124,7 +125,7 @@ static Response execute_statement(const Statement *statement) {
             rs.array_response.length = vec_size(coll);
             for (size_t i = 0; i < vec_size(coll); ++i) {
                 rs.array_response.records[i].timestamp = r.timestamp;
-                rs.array_response.records[i].value = r.value;
+                rs.array_response.records[i].value     = r.value;
             }
         }
         break;
@@ -148,7 +149,8 @@ err_not_found:
     return rs;
 }
 
-static void on_close(ev_tcp_handle *client, int err) {
+static void on_close(ev_tcp_handle *client, int err)
+{
     (void)client;
     if (err == EV_TCP_SUCCESS)
         log_info("Closed connection with %s:%i", client->addr, client->port);
@@ -157,12 +159,14 @@ static void on_close(ev_tcp_handle *client, int err) {
     free(client);
 }
 
-static void on_write(ev_tcp_handle *client) {
+static void on_write(ev_tcp_handle *client)
+{
     log_info("Written %lu bytes to %s:%i", client->to_write, client->addr,
              client->port);
 }
 
-static void on_data(ev_tcp_handle *client) {
+static void on_data(ev_tcp_handle *client)
+{
     if (client->buffer.size == 0)
         return;
     Request rq;
@@ -170,7 +174,7 @@ static void on_data(ev_tcp_handle *client) {
     ssize_t n = decode_request((const uint8_t *)client->buffer.buf, &rq);
     if (n < 0) {
         log_error("Can't decode a request from data");
-        rs.type = STRING_RSP;
+        rs.type               = STRING_RSP;
         rs.string_response.rc = 1;
         strncpy(rs.string_response.message, "Err", 4);
         rs.string_response.length = 4;
@@ -178,12 +182,12 @@ static void on_data(ev_tcp_handle *client) {
         // Parse into Statement
         Statement statement = parse(rq.query);
         // Execute it
-        rs = execute_statement(&statement);
+        rs                  = execute_statement(&statement);
     }
 
     ev_tcp_zero_buffer(client);
 
-    n = encode_response(&rs, (uint8_t *)client->buffer.buf);
+    n                   = encode_response(&rs, (uint8_t *)client->buffer.buf);
     client->buffer.size = n;
     log_info("Data: %s", client->buffer.buf);
     free_response(&rs);
@@ -191,8 +195,9 @@ static void on_data(ev_tcp_handle *client) {
     ev_tcp_queue_write(client);
 }
 
-static void on_connection(ev_tcp_handle *server) {
-    int err = 0;
+static void on_connection(ev_tcp_handle *server)
+{
+    int err               = 0;
     ev_tcp_handle *client = malloc(sizeof(*client));
     if ((err = ev_tcp_server_accept(server, client, on_data, on_write)) < 0) {
         log_error("Error occured: %s",
@@ -204,7 +209,8 @@ static void on_connection(ev_tcp_handle *server) {
     }
 }
 
-int roachdb_server_run(const char *host, int port) {
+int roachdb_server_run(const char *host, int port)
+{
     ev_context *ctx = ev_get_context();
     ev_tcp_server server;
     ev_tcp_server_init(&server, ctx, BACKLOG);

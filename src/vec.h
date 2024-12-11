@@ -15,16 +15,16 @@
 #define vec_init(vec, cap)                                                     \
     do {                                                                       \
         assert((cap) > 0);                                                     \
-        (vec).size = 0;                                                        \
+        (vec).size     = 0;                                                    \
         (vec).capacity = (cap);                                                \
-        (vec).data = calloc((cap), sizeof((vec).data[0]));                     \
+        (vec).data     = calloc((cap), sizeof((vec).data[0]));                 \
     } while (0)
 
-#define vec_new(vec) vec_init((vec), VEC_BASE_CAPACITY)
+#define vec_new(vec)      vec_init((vec), VEC_BASE_CAPACITY)
 
-#define vec_destroy(vec) free((vec).data)
+#define vec_destroy(vec)  free((vec).data)
 
-#define vec_size(vec) (vec).size
+#define vec_size(vec)     (vec).size
 
 #define vec_capacity(vec) (vec).capacity
 
@@ -72,9 +72,9 @@
 
 #define vec_at(vec, index) (vec).data[(index)]
 
-#define vec_first(vec) vec_at((vec), 0)
+#define vec_first(vec)     vec_at((vec), 0)
 
-#define vec_last(vec) vec_at((vec), vec_size((vec)) - 1)
+#define vec_last(vec)      vec_at((vec), vec_size((vec)) - 1)
 
 #define vec_resize(vec, start)                                                 \
     do {                                                                       \
@@ -112,7 +112,7 @@
                     right = middle - 1;                                        \
                 } else {                                                       \
                     *(res) = middle;                                           \
-                    found = 1;                                                 \
+                    found  = 1;                                                \
                     break;                                                     \
                 }                                                              \
             }                                                                  \
@@ -139,7 +139,7 @@
                     right = middle - 1;                                        \
                 } else {                                                       \
                     *(res) = middle;                                           \
-                    found = 1;                                                 \
+                    found  = 1;                                                \
                     break;                                                     \
                 }                                                              \
             }                                                                  \

@@ -11,7 +11,8 @@
 static const size_t BATCH_SIZE = 1 << 6;
 static const size_t BLOCK_SIZE = 1 << 12;
 
-int partition_init(Partition *p, const char *path, uint64_t base) {
+int partition_init(Partition *p, const char *path, uint64_t base)
+{
     int err = c_log_init(&p->clog, path, base);
     if (err < 0)
         return -1;
@@ -21,12 +22,13 @@ int partition_init(Partition *p, const char *path, uint64_t base) {
         return -1;
 
     p->start_ts = 0;
-    p->end_ts = 0;
+    p->end_ts   = 0;
 
     return 0;
 }
 
-int partition_from_disk(Partition *p, const char *path, uint64_t base) {
+int partition_from_disk(Partition *p, const char *path, uint64_t base)
+{
     int err = c_log_from_disk(&p->clog, path, base);
     if (err < 0)
         return -1;
@@ -36,12 +38,13 @@ int partition_from_disk(Partition *p, const char *path, uint64_t base) {
         return -1;
 
     p->start_ts = p->clog.base_timestamp * (uint64_t)1e9 + p->clog.base_ns;
-    p->end_ts = p->clog.current_timestamp;
+    p->end_ts   = p->clog.current_timestamp;
 
     return 0;
 }
 
-static int commit_records_to_log(Partition *p, const uint8_t *buf, size_t len) {
+static int commit_records_to_log(Partition *p, const uint8_t *buf, size_t len)
+{
     int err = c_log_append_batch(&p->clog, buf, len);
     if (err < 0)
         return -1;
@@ -55,21 +58,22 @@ static int commit_records_to_log(Partition *p, const uint8_t *buf, size_t len) {
     return 0;
 }
 
-int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
+int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc)
+{
 
     VEC(const Record *) records;
     vec_new(records);
 
     size_t total_records = 0;
-    size_t batch_size = 0;
-    uint8_t *buf = malloc(TS_FLUSH_SIZE * 2);
+    size_t batch_size    = 0;
+    uint8_t *buf         = malloc(TS_FLUSH_SIZE * 2);
     if (!buf) {
         vec_destroy(records);
         return -1;
     }
 
     uint8_t *bufptr = buf;
-    int err = 0;
+    int err         = 0;
 
     for (size_t i = 0; i < TS_CHUNK_SIZE; ++i) {
         if (tc->points[i].size == 0)
@@ -113,7 +117,7 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
 
     // Update timestamps
     p->start_ts = p->start_ts != 0 ? p->start_ts : tc->base_offset;
-    p->end_ts = vec_size(records) == 0 ? 0 : vec_last(records)->timestamp;
+    p->end_ts   = vec_size(records) == 0 ? 0 : vec_last(records)->timestamp;
 
     free(buf);
     vec_destroy(records);
@@ -121,7 +125,8 @@ int partition_flush_chunk(Partition *p, const Timeseries_Chunk *tc) {
     return 0;
 }
 
-static uint64_t end_offset(const Partition *p, const Range *r) {
+static uint64_t end_offset(const Partition *p, const Range *r)
+{
     uint64_t end = 0;
     if (r->end == -1)
         end = p->clog.size;
@@ -133,7 +138,8 @@ static uint64_t end_offset(const Partition *p, const Range *r) {
     return end;
 }
 
-int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
+int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp)
+{
     Range range;
     int err = p_index_find_offset(&p->index, timestamp, &range);
     if (err < 0)
@@ -145,15 +151,15 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
 
     uint64_t end = end_offset(p, &range);
 
-    ssize_t n = c_log_read_at(&p->clog, &ptr, range.start, end);
+    ssize_t n    = c_log_read_at(&p->clog, &ptr, range.start, end);
     if (n < 0)
         return -1;
 
     size_t record_len = 0;
-    uint64_t ts = 0;
+    uint64_t ts       = 0;
     while (n > 0) {
         record_len = read_i64(ptr);
-        ts = read_i64(ptr + sizeof(uint64_t));
+        ts         = read_i64(ptr + sizeof(uint64_t));
         if (ts == timestamp)
             break;
         ptr += record_len;
@@ -166,8 +172,8 @@ int partition_find(const Partition *p, uint8_t *dst, uint64_t timestamp) {
     return 0;
 }
 
-int partition_range(const Partition *p, uint8_t *dst, uint64_t t0,
-                    uint64_t t1) {
+int partition_range(const Partition *p, uint8_t *dst, uint64_t t0, uint64_t t1)
+{
     Range r0, r1;
     int err = p_index_find_offset(&p->index, t0, &r0);
     if (err < 0)
@@ -183,17 +189,17 @@ int partition_range(const Partition *p, uint8_t *dst, uint64_t t0,
     uint8_t buf[BLOCK_SIZE];
     uint8_t *ptr = &buf[0];
 
-    ssize_t n = c_log_read_at(&p->clog, &ptr, r0.start, end1);
+    ssize_t n    = c_log_read_at(&p->clog, &ptr, r0.start, end1);
     if (n < 0)
         return -1;
 
     size_t record_len = 0, base_size = n;
     size_t start = n;
-    uint64_t ts = 0;
+    uint64_t ts  = 0;
 
     while (n > 0) {
         record_len = read_i64(ptr);
-        ts = read_i64(ptr + sizeof(uint64_t));
+        ts         = read_i64(ptr + sizeof(uint64_t));
         if (ts == t0)
             start = n;
         ptr += record_len;
