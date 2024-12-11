@@ -1,7 +1,15 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -Werror -Wunused -std=c11 -pedantic -ggdb -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -pg -D_DEFAULT_SOURCE=200809L -Iinclude -Isrc
-LDFLAGS = -L. -ltimeseries -fsanitize=address -fsanitize=undefined
-LDFLAGS_CLI = -fsanitize=address -fsanitize=undefined
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+    CC = clang
+    CFLAGS = -Wall -Wextra -Werror -Wunused -std=c11 -pedantic -ggdb -pg -D_DEFAULT_SOURCE=200809L -Iinclude -Isrc
+    LDFLAGS = -L. -ltimeseries
+else
+    CC = gcc
+    CFLAGS = -Wall -Wextra -Werror -Wunused -std=c11 -pedantic -ggdb -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer -pg -D_DEFAULT_SOURCE=200809L -Iinclude -Isrc
+    LDFLAGS = -L. -ltimeseries -fsanitize=address -fsanitize=undefined
+    LDFLAGS_CLI = -fsanitize=address -fsanitize=undefined
+endif
 
 LIB_SOURCES = src/timeseries.c src/partition.c src/wal.c src/disk_io.c src/binary.c src/logging.c src/persistent_index.c src/commit_log.c
 LIB_OBJECTS = $(LIB_SOURCES:.c=.o)

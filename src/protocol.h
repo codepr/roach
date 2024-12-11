@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/types.h>
 
 /*
  * Define a basic request, for the time being it's fine to treat

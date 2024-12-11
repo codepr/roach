@@ -77,7 +77,7 @@ ssize_t encode_response(const Response *r, uint8_t *dst) {
     while (j < r->array_response.length) {
         // Timestamp
         dst[i++] = ':';
-        n = snprintf((char *)dst + i, 21, "%lu",
+        n = snprintf((char *)dst + i, 21, "%llu",
                      r->array_response.records[j].timestamp);
         i += n;
         dst[i++] = '\r';

@@ -1,6 +1,5 @@
 #include "client.h"
 #include "protocol.h"
-#include <ctype.h>
 #include <errno.h>
 #include <netdb.h>
 #include <stdlib.h>

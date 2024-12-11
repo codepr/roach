@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define TS_NAME_MAX_LENGTH 1 << 9
 #define TS_CHUNK_SIZE 900 // 15 min

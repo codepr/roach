@@ -24,7 +24,7 @@
 static Timeseries_DB *db = NULL;
 
 static Response execute_statement(const Statement *statement) {
-    Response rs;
+    Response rs = {0};
     Record r = {0};
     Timeseries *ts = NULL;
     int err = 0;

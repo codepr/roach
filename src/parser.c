@@ -164,18 +164,18 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
         } else if (strncmp(token.p, "AT", token.length) == 0) {
             tokens[i].type = TOKEN_AT;
             token = lexer_next(l);
-            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
+            if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
         } else if (strncmp(token.p, "RANGE", token.length) == 0) {
             tokens[i].type = TOKEN_RANGE;
             token = lexer_next(l);
-            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
+            if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "TO", token.length) == 0) {
             tokens[i].type = TOKEN_TO;
             token = lexer_next(l);
-            if (sscanf(token.p, "%li", &(int64_t){0}) == 1)
+            if (sscanf(token.p, "%lli", &(int64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else if (strncmp(token.p, "WHERE", token.length) == 0) {
@@ -189,7 +189,7 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
         } else if (strncmp(token.p, "BY", token.length) == 0) {
             tokens[i].type = TOKEN_BY;
             token = lexer_next(l);
-            if (sscanf(token.p, "%lu", &(uint64_t){0}) == 1)
+            if (sscanf(token.p, "%llu", &(uint64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
             // TOOD error here, missing the start timestamp
         } else {
@@ -207,7 +207,7 @@ static ssize_t tokenize_select(Lexer *l, Token *tokens, size_t capacity) {
                 tokens[i].type = TOKEN_OPERATOR_NE;
             }
             token = lexer_next(l);
-            if (sscanf(token.p, "%lu", &(uint64_t){0}) == 1)
+            if (sscanf(token.p, "%llu", &(uint64_t){0}) == 1)
                 strncpy(tokens[i].value, token.p, token.length);
         }
     }
@@ -411,7 +411,7 @@ static void print_insert(const Statement_Insert *insert) {
     printf("INSERT\n\t%s\nINTO\n\t%s\n", insert->ts_name, insert->db_name);
     printf("VALUES\n\t");
     for (size_t i = 0; i < insert->record_len; ++i) {
-        printf("(%lu, %.2f) ", insert->records[i].timestamp,
+        printf("(%llu, %.2f) ", insert->records[i].timestamp,
                insert->records[i].value);
     }
     printf("\n");
@@ -420,16 +420,16 @@ static void print_insert(const Statement_Insert *insert) {
 static void print_select(const Statement_Select *select) {
     printf("SELECT\n\t%s\nFROM\n\t%s\n", select->ts_name, select->db_name);
     if (select->mask & SM_SINGLE)
-        printf("AT\n\t%li\n", select->start_time);
+        printf("AT\n\t%lli\n", select->start_time);
     else if (select->mask & SM_RANGE)
-        printf("RANGE\n\t%li TO %li\n", select->start_time, select->end_time);
+        printf("RANGE\n\t%lli TO %lli\n", select->start_time, select->end_time);
     if (select->mask & SM_WHERE)
         printf("WHERE\n\t%s %i %.2lf\n", select->where.key,
                select->where.operator, select->where.value);
     if (select->mask & SM_AGGREGATE)
         printf("AGGREAGATE\n\t%i\n", select->af);
     if (select->mask & SM_BY)
-        printf("BY\n\t%lu\n", select->interval);
+        printf("BY\n\t%llu\n", select->interval);
 }
 
 void print_statement(const Statement *statement) {
