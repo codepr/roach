@@ -4,6 +4,7 @@
 #include "logging.h"
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -13,7 +14,7 @@ static const char t[2] = {'t', 'h'};
 
 int wal_init(Wal *w, const char *path, uint64_t base_timestamp, int main)
 {
-    snprintf(w->path, sizeof(w->path), "%s/wal-%c-%.20llu", path, t[main],
+    snprintf(w->path, sizeof(w->path), "%s/wal-%c-%.20" PRIu64, path, t[main],
              base_timestamp);
     w->fp = open_file(w->path, "log", "w+");
     if (!w->fp)
@@ -45,7 +46,7 @@ int wal_delete(Wal *w)
 int wal_from_disk(Wal *w, const char *path, uint64_t base_timestamp, int main)
 {
     char path_buf[MAX_PATH_SIZE];
-    snprintf(path_buf, sizeof(path_buf), "%s/wal-%c-%.20llu", path, t[main],
+    snprintf(path_buf, sizeof(path_buf), "%s/wal-%c-%.20" PRIu64, path, t[main],
              base_timestamp);
     w->fp = open_file(path_buf, "log", "r");
     if (!w->fp)

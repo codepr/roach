@@ -169,9 +169,9 @@ static void on_data(ev_tcp_handle *client)
 {
     if (client->buffer.size == 0)
         return;
-    Request rq;
-    Response rs;
-    ssize_t n = decode_request((const uint8_t *)client->buffer.buf, &rq);
+    Request rq  = {0};
+    Response rs = {0};
+    ssize_t n   = decode_request((const uint8_t *)client->buffer.buf, &rq);
     if (n < 0) {
         log_error("Can't decode a request from data");
         rs.type               = STRING_RSP;
