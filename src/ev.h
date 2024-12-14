@@ -770,7 +770,7 @@ static int ev_api_poll(ev_context *ctx, time_t timeout)
 {
     struct kqueue_api *k_api = ctx->api;
     struct timespec ts_timeout;
-    ts_timeout.tv_sec  = timeout;
+    ts_timeout.tv_sec  = timeout < 0 ? 0 : timeout;
     ts_timeout.tv_nsec = 0;
     int err = kevent(k_api->fd, NULL, 0, k_api->events, ctx->maxevents,
                      timeout > 0 ? &ts_timeout : NULL);
